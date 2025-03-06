@@ -1,0 +1,45 @@
+[project]
+name = "asp"
+dynamic=["version"]
+description = "Asynchronous (Event) Stream Processing. Allows event stream processors easily."
+authors = [
+    { name = "fdv1", email = "francois@pytek.io" },
+]
+requires-python = ">=3.8"
+readme = "README.md"
+packages = [{include = "src"}]
+keywords = ["asyncio", "event processing", "backtesting"]
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "Flake8-pyproject"
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[project.urls]
+Homepage = "https://github.com/pytek-io/asp"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.flake8]
+# Check that this is aligned with your other tools like Black
+max-line-length = 120
+exclude = ["docs"]
+
+[tool.mypy]
+exclude=["docs"]
+
+[tool.uv.workspace]
+members = ["test"]
