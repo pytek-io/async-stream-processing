@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from itertools import chain
 from typing import Any, AsyncIterator, Callable, Coroutine, Dict, List, Optional, Tuple, Iterator
+from contextlib import contextmanager
 
 current_processor: Processor
 
@@ -185,30 +186,34 @@ class Processor:
                 timeout = None
                 if next_event_time and self.virtual_time:
                     timeout = max(0, (next_event_time - self.virtual_time).total_seconds())
-                start = datetime.now()
-                done, _ = await asyncio.wait(
-                    chain((data_event_ocurred_task,), self.awaiting_event_streams),
-                    timeout=timeout,
-                    return_when=asyncio.FIRST_COMPLETED,
-                )
-                self.virtual_time += datetime.now() - start
+                with self.update_virtual_time():
+                    done, _ = await asyncio.wait(
+                        chain((data_event_ocurred_task,), self.awaiting_event_streams),
+                        timeout=timeout,
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
                 if data_event_ocurred_task in done:
                     done.remove(data_event_ocurred_task)
                     self.data_event_occured.clear()
                     data_event_ocurred_task = asyncio.create_task(self.data_event_occured.wait())
                 for event_stream in sorted(map(self.awaiting_event_streams.pop, done), key=EventStream.priority):
-                    start = datetime.now()
-                    event_stream.execute_coroutine()
-                    self.virtual_time += datetime.now() - start
+                    with self.update_virtual_time():
+                        event_stream.execute_coroutine()
             if next_event_time and next_event_time < datetime.now():
                 for event_time, callback in next_scheduled_events:
-                    self.actual_time = datetime.now()
                     self.virtual_time = self.actual_time if self.live else max(self.virtual_time, event_time)
                     if event_time == next_event_time:
-                        start = datetime.now()
-                        callback()
-                        self.virtual_time += datetime.now() - start
+                        with self.update_virtual_time():
+                            callback()
         data_event_ocurred_task.cancel()
+
+    @contextmanager
+    def update_virtual_time(self):
+        start = datetime.now()
+        yield
+        now = datetime.now()
+        self.virtual_time += now - start
+        self.actual_time = now
 
     def call_next_scheduled_callback(self):
         self.scheduled_callbacks.pop(0)()
