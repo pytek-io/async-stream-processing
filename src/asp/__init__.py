@@ -134,7 +134,6 @@ class Processor:
         self.awaiting_event_streams: Dict[asyncio.Future, EventStream] = {}
         self.live = False
         self.scheduled_callbacks: List[ScheduledCallback] = []
-        self.nb_event_streams_fast_forwarding = 0
         self.data_event_occured: asyncio.Event
 
     async def run(
@@ -143,7 +142,6 @@ class Processor:
         on_live_start: Optional[Callable] = None,
     ):
         self.live_callback = on_live_start
-        self.nb_event_streams_fast_forwarding = len(callbacks_map)
         self.data_event_occured = asyncio.Event()
         data_event_ocurred_task = asyncio.create_task(self.data_event_occured.wait())
         event_streams = [
@@ -201,9 +199,6 @@ class Processor:
                         callback()
                         self.virtual_time += datetime.now() - start
         await asyncio.gather(*tasks)
-
-    def update_live_event_streams(self):
-        self.nb_event_streams_fast_forwarding -= 1
 
     def call_next_scheduled_callback(self):
         self.scheduled_callbacks.pop(0)()
