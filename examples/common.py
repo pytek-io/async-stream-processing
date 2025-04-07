@@ -1,7 +1,7 @@
 from humanize import precisedelta
-from datetime import datetime, timedelta
-import asyncio
+from datetime import datetime
 import asp
+from asp.testing import create_async_generator, timestamp  # noqa: F401
 
 NAMES = ["Jane", "John", "Sarah", "Paul", "Jane"]
 
@@ -21,29 +21,6 @@ virtual_time = iter(elapsed_time(asp.now))
 
 def log(msg):
     print(f"{next(actual_time)}, {next(virtual_time)}: {msg}", flush=True)
-
-
-async def create_async_generator(values, delay=1):
-    """ "
-    Yield values in the future with a delay.
-    """
-    for name in values:
-        yield name
-        await asyncio.sleep(delay)
-
-
-def timestamp(values, start, delay=1):
-    """
-    Yield values in the future with a delay.
-    """
-
-    def timestamp_generator():
-        nonlocal start
-        while True:
-            yield start
-            start += timedelta(seconds=delay)
-
-    return zip(timestamp_generator(), values)
 
 
 class Greeter:
