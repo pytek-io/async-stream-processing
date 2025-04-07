@@ -278,4 +278,4 @@ def run(
     """
     global current_processor
     current_processor = Processor()
-    return current_processor.run(start_time, end_time, callbacks_map, on_live_start)
+    return current_processor.run(callbacks_map, on_live_start, start_time, end_time)
