@@ -109,10 +109,16 @@ class EventStream:
     def fast_forwarding(self):
         return any([self.iterating_past_values, self.pending_events, self.asyncio_future, self.current_coroutine])
 
-    def iterate_through_past_events(self):
+    def iterate_through_past_events(self, start_time: Optional[datetime], end_time: Optional[datetime]):
         if not self.pending_events:
             try:
-                self.pending_events.append(next(self.past_events_iter))
+                while True:
+                    timestamp, value = next(self.past_events_iter)
+                    if start_time and timestamp <= start_time:
+                        continue
+                    if end_time and timestamp > end_time:
+                        raise StopIteration
+                    self.pending_events.append((timestamp, value))
             except StopIteration:
                 self.iterating_past_values = False
 
@@ -142,6 +148,8 @@ class Processor:
         self,
         callbacks_map: List[tuple[Callable, Any, Any]],
         on_live_start: Optional[Callable] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
     ):
         self.live_callback = on_live_start
         self.data_event_occured = asyncio.Event()
@@ -159,7 +167,7 @@ class Processor:
                 break
             if not self.live:
                 for event_stream in active_event_streams:
-                    event_stream.iterate_through_past_events()
+                    event_stream.iterate_through_past_events(start_time, end_time)
                 if not (any(map(EventStream.fast_forwarding, active_event_streams)) or self.scheduled_callbacks):
                     self.live = True
                     for event_stream in active_event_streams:
@@ -257,13 +265,17 @@ def increase_virtual_time(delta: timedelta):
 def run(
     callbacks_map: List[tuple[Callable, Any, Any]],
     on_live_start: Optional[Callable] = None,
+    start_time: Optional[datetime] = None,
+    end_time: Optional[datetime] = None,
 ):
     """
     Run the processor with the given callbacks map.
     :param callbacks_map: List of EventStreamDefinition objects.
     :param on_live_start: Callback function to be called when the processor starts running live.
+    :param start_time: Start time for the past events.
+    :param end_time: End time for the past events.
     :return: Awaitable object.
     """
     global current_processor
     current_processor = Processor()
-    return current_processor.run(callbacks_map, on_live_start)
+    return current_processor.run(start_time, end_time, callbacks_map, on_live_start)
