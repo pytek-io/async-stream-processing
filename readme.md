@@ -132,19 +132,22 @@ Note also that after virtual time catches up with actual time they become consis
  ASP allows to schedule callbacks at a later time as shown in the below example.
 
 ```python
-def greet(name):
-    log(f"Hello {name}.")
-    asp.call_later(1, log, f"Bye {name}!")
+class Greeter:
+    ...
+    def greet_later(self, name):
+        log(f"{name} arrived.")
+        asp.call_later(1, self.greet, name)
 
 
 def main():
-    past_queue = timestamp(NAMES, datetime.now() - timedelta(seconds=60), delay=1)
+    greeter = Greeter()
+    past_queue = timestamp(NAMES[:2], datetime.now() - timedelta(seconds=60), delay=1)
     live_queue = create_async_generator(NAMES[2:], delay=1)
     asyncio.run(
         asp.run(
             [
                 EventStreamDefinition(
-                    callback=greet,
+                    callback=greeter.greet_later,
                     past_events_iter=past_queue,
                     future_events_iter=live_queue,
                 )
@@ -156,17 +159,17 @@ def main():
 This will produce the following output.
 
 ```
+0 seconds, 0.00 seconds: Jane arrived.
+0.00 seconds, 1.00 seconds: John arrived.
 0.00 seconds, 0.00 seconds: Hello Jane.
 0.00 seconds, 1.00 seconds: Hello John.
-0.00 seconds, 0.00 seconds: Bye Jane!
-0.00 seconds, 1.00 seconds: Bye John!
 ** Running live **
-0.00 seconds, 58.00 seconds: Hello Sarah.
-1.00 seconds, 1.00 seconds: Bye Sarah!
-0.00 seconds, 0.00 seconds: Hello Paul.
-1.00 seconds, 1.00 seconds: Bye Paul!
-0.00 seconds, 0.00 seconds: Hello Jane.
-1.00 seconds, 1.00 seconds: Bye Jane!
+0.00 seconds, 58.00 seconds: Sarah arrived.
+1.00 seconds, 1.00 seconds: Hello Sarah.
+0.00 seconds, 0.00 seconds: Paul arrived.
+1.00 seconds, 1.00 seconds: Hello Paul.
+0.00 seconds, 0.00 seconds: Jane arrived.
+1.00 seconds, 1.00 seconds: Hello again Jane!
 ```
 
 One can can see that we fast forwarded events while maintaining the expected chronology.
@@ -176,20 +179,23 @@ One can can see that we fast forwarded events while maintaining the expected chr
 Callbacks passed to ASP can be either regular methods or coroutine. ASP provides a *sleep* method that can also be fast forwarded as shown below. 
 
 ```python
-async def greet(name):
-    log(f"Hello {name}.")
-    await asp.sleep(1)
-    log("How are you?")
+class Greeter:
+    ...
+    async def slow_greet(self, name):
+        log(f"{name} arrived.")
+        await asp.sleep(1)
+        self.greet(name)
 
 
 def main():
+    greeter = Greeter()
     past_queue = timestamp(NAMES[:2], datetime.now() - timedelta(seconds=60), delay=1)
     live_queue = create_async_generator(NAMES[2:], delay=1)
     asyncio.run(
         asp.run(
             [
                 EventStreamDefinition(
-                    callback=greet,
+                    callback=greeter.slow_greet,
                     past_events_iter=past_queue,
                     future_events_iter=live_queue,
                 )
@@ -200,17 +206,17 @@ def main():
 ```
 
 ```
-0 seconds, 0.00 seconds: Hello Jane.
-0.00 seconds, 1.00 seconds: How are you?
-0.00 seconds, 0.00 seconds: Hello John.
-0.00 seconds, 1.00 seconds: How are you?
+0 seconds, 0.00 seconds: Jane arrived.
+0.00 seconds, 1.00 seconds: Hello Jane.
+0.00 seconds, 0.00 seconds: John arrived.
+0.00 seconds, 1.00 seconds: Hello John.
 ** Running live **
-0.00 seconds, 58.00 seconds: Hello Sarah.
-1.00 seconds, 1.00 seconds: How are you?
-0.00 seconds, 0.00 seconds: Hello Paul.
-1.00 seconds, 1.00 seconds: How are you?
-0.00 seconds, 0.00 seconds: Hello Jane.
-1.00 seconds, 1.00 seconds: How are you?
+0.00 seconds, 58.00 seconds: Sarah arrived.
+1.00 seconds, 1.00 seconds: Hello Sarah.
+0.00 seconds, 0.00 seconds: Paul arrived.
+1.00 seconds, 1.00 seconds: Hello Paul.
+0.00 seconds, 0.00 seconds: Jane arrived.
+1.00 seconds, 1.00 seconds: Hello again Jane!
 ```
 One can see once again the correct chronology of events being displayed. 
 
