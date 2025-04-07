@@ -56,3 +56,6 @@ class Greeter:
             self.greeted.add(name)
         else:
             log(f"Hello again {name}!")
+
+    def greet_later(self, name):
+        asp.call_later(1, self.greet, name)

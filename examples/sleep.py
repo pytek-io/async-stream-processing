@@ -18,7 +18,13 @@ def main():
     live_queue = create_async_generator(NAMES[2:], delay=1)
     asyncio.run(
         asp.run(
-            [EventStreamDefinition(callback=greet, past_events_iter=past_queue, future_events_iter=live_queue)],
+            [
+                EventStreamDefinition(
+                    callback=greet,
+                    past_events_iter=past_queue,
+                    future_events_iter=live_queue,
+                )
+            ],
             on_live_start=lambda: print("** Running live **"),
         )
     )

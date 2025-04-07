@@ -22,6 +22,7 @@ from common import NAMES, log, timestamp
 import asp
 from asp import EventStreamDefinition
 
+
 class Greeter:
     def __init__(self):
         self.greeted = set()
@@ -33,10 +34,15 @@ class Greeter:
         else:
             log(f"Hello again {name}!")
 
+
 def main():
     greeter = Greeter()
     past_queue = timestamp(NAMES, datetime.now() - timedelta(seconds=60), delay=1)
-    asyncio.run(asp.run([EventStreamDefinition(callback=greeter.greet, past_events_iter=past_queue)]))
+    asyncio.run(
+        asp.run(
+            [EventStreamDefinition(callback=greeter.greet, past_events_iter=past_queue)]
+        )
+    )
 
 
 if __name__ == "__main__":
@@ -68,7 +74,15 @@ Real time events are passed as asynchronous iterators which can also be mapped t
 def main():
     greeter = Greeter()
     live_queue = create_async_generator(NAMES, delay=1)
-    asyncio.run(asp.run([EventStreamDefinition(callback=greeter.greet, future_events_iter=live_queue)]))
+    asyncio.run(
+        asp.run(
+            [
+                EventStreamDefinition(
+                    callback=greeter.greet, future_events_iter=live_queue
+                )
+            ]
+        )
+    )
 ```
 
 ```
@@ -91,7 +105,13 @@ def main():
     live_queue = create_async_generator(NAMES[2:], delay=1)
     asyncio.run(
         asp.run(
-            [EventStreamDefinition(callback=greeter.greet, past_events_iter=past_queue, future_events_iter=live_queue)],
+            [
+                EventStreamDefinition(
+                    callback=greeter.greet,
+                    past_events_iter=past_queue,
+                    future_events_iter=live_queue,
+                )
+            ],
             on_live_start=lambda: print("** Running live **"),
         )
     )
@@ -118,12 +138,17 @@ def greet(name):
 
 
 def main():
-    start_time = datetime.now() - timedelta(seconds=60)
-    past_queue = iter([(start_time + timedelta(seconds=i), name) for i, name in enumerate(NAMES[:2])])
+    past_queue = timestamp(NAMES, datetime.now() - timedelta(seconds=60), delay=1)
     live_queue = create_async_generator(NAMES[2:], delay=1)
     asyncio.run(
         asp.run(
-            [EventStreamDefinition(callback=greet, past_events_iter=past_queue, future_events_iter=live_queue)],
+            [
+                EventStreamDefinition(
+                    callback=greet,
+                    past_events_iter=past_queue,
+                    future_events_iter=live_queue,
+                )
+            ],
             on_live_start=lambda: print("** Running live **"),
         )
     )
@@ -162,7 +187,13 @@ def main():
     live_queue = create_async_generator(NAMES[2:], delay=1)
     asyncio.run(
         asp.run(
-            [EventStreamDefinition(callback=greet, past_events_iter=past_queue, future_events_iter=live_queue)],
+            [
+                EventStreamDefinition(
+                    callback=greet,
+                    past_events_iter=past_queue,
+                    future_events_iter=live_queue,
+                )
+            ],
             on_live_start=lambda: print("** Running live **"),
         )
     )
