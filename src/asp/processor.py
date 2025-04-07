@@ -157,7 +157,7 @@ class Processor:
         event_streams = [
             EventStream(self, index, **definition.__dict__) for index, definition in enumerate(callbacks_map)
         ]
-        tasks = [asyncio.create_task(event_stream.handle_live_events()) for event_stream in event_streams]
+        _tasks = [asyncio.create_task(event_stream.handle_live_events()) for event_stream in event_streams]
         active_event_streams: List[EventStream] = event_streams
         while True:
             active_event_streams: List[EventStream] = [
@@ -208,7 +208,7 @@ class Processor:
                         start = datetime.now()
                         callback()
                         self.virtual_time += datetime.now() - start
-        await asyncio.gather(*tasks)
+        data_event_ocurred_task.cancel()
 
     def call_next_scheduled_callback(self):
         self.scheduled_callbacks.pop(0)()
