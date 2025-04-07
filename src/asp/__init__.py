@@ -9,6 +9,8 @@ from typing import Any, AsyncIterator, Callable, Coroutine, Dict, List, Optional
 current_processor: Processor
 
 EMPTY_ITERATOR = iter(())
+
+
 @dataclass
 class ScheduledCallback:
     timestamp: datetime
@@ -210,23 +212,58 @@ class Processor:
         self.scheduled_callbacks.append(ScheduledCallback(self.now() + timedelta(seconds=delay), callback, args))
         self.scheduled_callbacks.sort(key=lambda x: x.timestamp)
 
+    def increase_virtual_time(self, delta: timedelta):
+        self.virtual_time += delta
+
 
 async def sleep(delay: float) -> None:
+    """
+    Sleep for a given delay.
+    :param delay: Delay in seconds.
+    :return: None
+    """
     await Future(delay)
 
 
 def call_later(delay: float, callback: Callable, *args):
+    """
+    Schedule a callback to be called after a delay.
+    :param delay: Delay in seconds.
+    :param callback: Callback function to be called.
+    :param args: Arguments to be passed to the callback function.
+    :return: None
+    """
     current_processor.call_later(delay, callback, *args)
 
 
 def now() -> datetime:
+    """
+    Get the current time. This is the virtual time if the processor is not live.
+    :return: Current time.
+    """
     return current_processor.now()
+
+
+def increase_virtual_time(delta: timedelta):
+    """
+    Increase the virtual time by a given delta, to be used for testing puposes.
+    :param
+    delta: Time delta to increase the virtual time."
+    :return: None
+    """
+    current_processor.increase_virtual_time(delta)
 
 
 def run(
     callbacks_map: List[tuple[Callable, Any, Any]],
     on_live_start: Optional[Callable] = None,
 ):
+    """
+    Run the processor with the given callbacks map.
+    :param callbacks_map: List of EventStreamDefinition objects.
+    :param on_live_start: Callback function to be called when the processor starts running live.
+    :return: Awaitable object.
+    """
     global current_processor
     current_processor = Processor()
     return current_processor.run(callbacks_map, on_live_start)
