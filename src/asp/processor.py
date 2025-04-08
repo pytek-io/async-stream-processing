@@ -201,14 +201,19 @@ class Processor:
                         event_stream.execute_coroutine()
             if next_event_time and next_event_time < datetime.now():
                 for event_time, callback in next_scheduled_events:
-                    self.virtual_time = self.actual_time if self.live else max(self.virtual_time, event_time)
                     if event_time == next_event_time:
+                        if not self.live and self.virtual_time < event_time:
+                            self.actual_time = datetime.now()
+                            self.virtual_time = event_time
                         with self.update_virtual_time():
                             callback()
         data_event_ocurred_task.cancel()
 
     @contextmanager
     def update_virtual_time(self):
+        if self.live:
+            yield
+            return
         start = datetime.now()
         yield
         now = datetime.now()

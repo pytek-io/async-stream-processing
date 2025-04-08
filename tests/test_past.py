@@ -6,7 +6,7 @@ import asp
 from asp import EventStreamDefinition
 from asp.testing import timestamp as timestamp_values
 
-TIMESTAMP_TOLERANCE = 0.01
+TIMESTAMP_TOLERANCE = 0.001
 
 
 class Client:
@@ -21,9 +21,8 @@ class Client:
         await asp.sleep(1)
         self.greet(value)
 
-    async def greet_later(self, value):
+    def greet_later(self, value):
         asp.call_later(1, self.greet, value)
-
 
 
 @pytest.mark.asyncio
@@ -67,11 +66,10 @@ async def test_end_date_filter():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("method,lags", [("greet", [0] * 10), ("sleep_and_greet", [1] * 10)])
-async def test_fast_forward_sleep(method, lags):
+@pytest.mark.parametrize("method,lags", [("greet", [0] * 10), ("sleep_and_greet", [1] * 10), ("greet_later", [1] * 10)])
+async def test_fast_forward(method, lags):
     """
     - past events are all passed at roughly the right virtual time.
-    - past events are correctly filtered out using start_time and end_time.
     """
     start_time = datetime.now() - timedelta(seconds=60)
     client = Client(start_time)
