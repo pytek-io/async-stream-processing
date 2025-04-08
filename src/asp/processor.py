@@ -115,9 +115,9 @@ class EventStream:
             try:
                 while True:
                     timestamp, value = next(self.past_events_iter)
-                    if start_time and timestamp <= start_time:
+                    if start_time and timestamp < start_time:
                         continue
-                    if end_time and timestamp > end_time:
+                    if end_time and timestamp >= end_time:
                         raise StopIteration
                     self.pending_events.append((timestamp, value))
             except StopIteration:
