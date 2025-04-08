@@ -15,7 +15,7 @@ def main():
         asp.run(
             [
                 EventStreamDefinition(
-                    callback=greeter.slow_greet,
+                    callback=greeter.sleep_and_greet,
                     past_events_iter=past_queue,
                     future_events_iter=live_queue,
                 )

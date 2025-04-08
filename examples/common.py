@@ -38,7 +38,7 @@ class Greeter:
         log(f"{name} arrived.")
         asp.call_later(1, self.greet, name)
 
-    async def slow_greet(self, name):
+    async def sleep_and_greet(self, name):
         log(f"{name} arrived.")
-        await asp.sleep(1)
+        await asp.sleep(5)
         self.greet(name)

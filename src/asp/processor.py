@@ -128,10 +128,10 @@ class EventStream:
             async for value in self.future_event_stream:
                 if self.processor.live:
                     self.pending_events.append((datetime.now(), value))
-                    self.processor.data_event_occured.set()
+                    self.processor.new_data_arrived.set()
                 else:
                     self.pending_events_buffer.append((datetime.now(), value))
-        self.processor.data_event_occured.set()
+        self.processor.new_data_arrived.set()
         self.exhausted_live_values = True
 
 
@@ -143,7 +143,7 @@ class Processor:
         self.awaiting_event_streams: Dict[asyncio.Future, EventStream] = {}
         self.live = False
         self.scheduled_callbacks: List[ScheduledCallback] = []
-        self.data_event_occured: asyncio.Event
+        self.new_data_arrived: asyncio.Event
 
     async def run(
         self,
@@ -153,8 +153,8 @@ class Processor:
         end_time: Optional[datetime] = None,
     ):
         self.live_callback = on_live_start
-        self.data_event_occured = asyncio.Event()
-        data_event_ocurred_task = asyncio.create_task(self.data_event_occured.wait())
+        self.new_data_arrived = asyncio.Event()
+        wating_for_new_data_task = asyncio.create_task(self.new_data_arrived.wait())
         event_streams = [
             EventStream(self, index, **definition.__dict__) for index, definition in enumerate(callbacks_map)
         ]
@@ -188,14 +188,14 @@ class Processor:
                     timeout = max(0, (next_event_time - self.virtual_time).total_seconds())
                 with self.update_virtual_time():
                     done, _ = await asyncio.wait(
-                        chain((data_event_ocurred_task,), self.awaiting_event_streams),
+                        chain((wating_for_new_data_task,), self.awaiting_event_streams),
                         timeout=timeout,
                         return_when=asyncio.FIRST_COMPLETED,
                     )
-                if data_event_ocurred_task in done:
-                    done.remove(data_event_ocurred_task)
-                    self.data_event_occured.clear()
-                    data_event_ocurred_task = asyncio.create_task(self.data_event_occured.wait())
+                if wating_for_new_data_task in done:
+                    done.remove(wating_for_new_data_task)
+                    self.new_data_arrived.clear()
+                    wating_for_new_data_task = asyncio.create_task(self.new_data_arrived.wait())
                 for event_stream in sorted(map(self.awaiting_event_streams.pop, done), key=EventStream.priority):
                     with self.update_virtual_time():
                         event_stream.execute_coroutine()
@@ -207,7 +207,7 @@ class Processor:
                             self.virtual_time = event_time
                         with self.update_virtual_time():
                             callback()
-        data_event_ocurred_task.cancel()
+        wating_for_new_data_task.cancel()
 
     @contextmanager
     def update_virtual_time(self):
