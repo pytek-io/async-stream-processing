@@ -27,6 +27,7 @@ class EventStreamDefinition:
     callback: Callable
     past_events_iter: Iterator[Any] = EMPTY_ITERATOR
     future_events_iter: Optional[AsyncIterator[Any]] = None
+    unpack: bool = False
 
 
 @dataclass
@@ -45,6 +46,7 @@ class EventStream:
         callback,
         past_events_iter: Optional[AsyncIterator[Any]] = None,
         future_events_iter: Optional[AsyncIterator[Any]] = None,
+        unpack: bool = False,
     ):
         self.processor: Processor = processor
         self._priority: int = index
@@ -57,9 +59,9 @@ class EventStream:
         self.sleep_end_time: Optional[datetime] = None
         self.pending_events: List[Tuple[datetime, Any]] = []
         self.exhausted_live_values = False
-        self.current_reference_time: datetime = datetime.now()
         self.iterating_past_values = True
         self.pending_events_buffer: List[Tuple[datetime, Any]] = []
+        self.unpack = unpack
 
     def priority(self):
         return self._priority
@@ -75,8 +77,8 @@ class EventStream:
         )
 
     def process_next_scheduled_event(self):
-        self.current_reference_time, value = self.pending_events.pop(0)
-        result = self.callback(value)
+        _, value = self.pending_events.pop(0)
+        result = self.callback(*value) if self.unpack else self.callback(value)
         if asyncio.iscoroutine(result):
             self.current_coroutine = result
             self.execute_coroutine()
