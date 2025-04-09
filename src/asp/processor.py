@@ -153,6 +153,7 @@ class Processor:
         on_live_start: Optional[Callable] = None,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
+        on_start: Optional[Callable] = None,
     ):
         self.live_callback = on_live_start
         self.new_data_arrived = asyncio.Event()
@@ -162,6 +163,11 @@ class Processor:
         ]
         _tasks = [asyncio.create_task(event_stream.handle_live_events()) for event_stream in event_streams]
         active_event_streams: List[EventStream] = event_streams
+        if on_start:
+            if start_time:
+                self.virtual_time = start_time
+            with self.update_virtual_time():
+                on_start()
         while True:
             active_event_streams: List[EventStream] = [
                 event_stream for event_stream in active_event_streams if not event_stream.is_done()
@@ -279,6 +285,7 @@ def run(
     on_live_start: Optional[Callable] = None,
     start_time: Optional[datetime] = None,
     end_time: Optional[datetime] = None,
+    on_start: Optional[Callable] = None,
 ):
     """
     Run the processor with the given callbacks map.
@@ -290,4 +297,4 @@ def run(
     """
     global current_processor
     current_processor = Processor()
-    return current_processor.run(callbacks_map, on_live_start, start_time, end_time)
+    return current_processor.run(callbacks_map, on_live_start, start_time, end_time, on_start)
