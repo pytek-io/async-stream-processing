@@ -7,6 +7,8 @@ from typing import Tuple
 import asp
 from asp import EventStreamDefinition
 
+from common import log
+
 
 @dataclass
 class Trade:
@@ -41,11 +43,11 @@ class Book:
         self.sell_positions = Positions()
 
     def on_new_trade(self, trade: Trade):
-         if trade.buy:
-             self.buy_positions.on_new_trade(trade)
-         else:
-             self.sell_positions.on_new_trade(trade)
-         self.compute_pnl()
+        if trade.buy:
+            self.buy_positions.on_new_trade(trade)
+        else:
+            self.sell_positions.on_new_trade(trade)
+        self.compute_pnl()
 
     def on_new_quote(self, quote: Tuple[bool, float]):
         bid, quote = quote
@@ -54,7 +56,7 @@ class Book:
         else:
             self.last_ask = quote
         if mid := self.mid():
-            print(asp.now(), f"Mid: {mid:.2f}")
+            log(f"Mid: {mid:.2f}")
 
     def mid(self):
         if self.last_bid and self.last_ask:
@@ -62,8 +64,7 @@ class Book:
 
     def compute_pnl(self):
         if mid := self.mid():
-            print(
-                asp.now(),
+            log(
                 f"PNL: {self.buy_positions.pnl(mid) - self.sell_positions.pnl(mid):.2f} {self.buy_positions.pnl(mid):.2f} {self.sell_positions.pnl(mid):.2f}",
             )
 

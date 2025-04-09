@@ -9,6 +9,8 @@ from typing import Dict, List
 import asp
 from asp import EventStreamDefinition
 
+from common import log
+
 
 @dataclass
 class Item:
@@ -36,10 +38,7 @@ class CartManager:
 
     def remove_discount(self, user_id: int):
         self.carts[user_id].discount = 1.0
-        print(
-            asp.now().strftime("%Y-%m-%d %H:%M:%S.000"),
-            f"Discount expired for user {user_id}",
-        )
+        log(f"Discount expired for user {user_id}")
 
     def update_cart(self, event: CartUpdate, user_id: int):
         if user_id not in self.carts:
@@ -67,10 +66,7 @@ class CartManager:
             cart.items = new_items
         total = reduce(lambda acc, item: acc + item.cost * item.qty, cart.items, 0)
         num_items = reduce(lambda acc, item: acc + item.qty, cart.items, 0)
-        print(
-            asp.now().strftime("%Y-%m-%d %H:%M:%S.000"),
-            f"Cart total:{total:.2f}, number of items:{num_items}",
-        )
+        log(f"Cart total:{total:.2f}, number of items:{num_items}")
 
 
 def main():
