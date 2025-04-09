@@ -107,7 +107,7 @@ def main():
                 EventStreamDefinition(
                     callback=cart_manager.update_cart,
                     past_events_iter=iter(events),
-                    unpack=True,
+                    unpack_args=True,
                 )
             ],
             start_time=st,
