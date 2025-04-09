@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 from itertools import starmap
 from typing import Tuple
 
-
 import asp
 from asp import EventStreamDefinition
 

@@ -46,7 +46,7 @@ class CartManager:
             self.carts[user_id] = Cart(user_id, [])
             # It would make more sense to schedule the discount expiration from here, but it would not be consistent
             # with the original example where the discount is removed after 1 minute from the beginning of the simulation.
-            # asp.call_later(45, self.remove_discount, user_id)
+            # asp.call_later(60, self.remove_discount, user_id)
         cart = self.carts[user_id]
         if event.add:
             cart.items.append(
