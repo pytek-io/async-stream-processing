@@ -30,6 +30,12 @@ class EventStreamDefinition:
     unpack_args: bool = False
     unpack_kwargs: bool = False
 
+
+@dataclass
+class BackgroundTaskDefinition:
+    callback: Callable
+
+
 @dataclass
 class Future:
     delay: float
@@ -78,8 +84,7 @@ class EventStream:
             and not self.pending_events_buffer
         )
 
-    def process_next_scheduled_event(self):
-        _, value = self.pending_events.pop(0)
+    def run_callback(self, value):
         if self.unpack_args:
             result = self.callback(*value)
         elif self.unpack_kwargs:
@@ -89,6 +94,16 @@ class EventStream:
         if asyncio.iscoroutine(result):
             self.current_coroutine = result
             self.execute_coroutine()
+
+    def process_next_scheduled_event(self):
+        _, value = self.pending_events.pop(0)
+        self.run_callback(value)
+
+    def start(self):
+        if not self.past_events_iter or self.future_event_stream:
+            self.iterating_past_values = False
+            self.unpack_args = True
+            self.run_callback(())
 
     def execute_coroutine(self):
         self.sleep_end_time = None
@@ -120,7 +135,7 @@ class EventStream:
         return any([self.iterating_past_values, self.pending_events, self.asyncio_future, self.current_coroutine])
 
     def iterate_through_past_events(self, start_time: Optional[datetime], end_time: Optional[datetime]):
-        if not self.pending_events:
+        if self.past_events_iter and not self.pending_events:
             try:
                 while True:
                     timestamp, value = next(self.past_events_iter)
@@ -157,6 +172,7 @@ class Processor:
     async def run(
         self,
         callbacks_map: List[tuple[Callable, Any, Any]],
+        background_tasks: Optional[List[BackgroundTaskDefinition]] = None,
         on_live_start: Optional[Callable] = None,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
@@ -166,7 +182,8 @@ class Processor:
         self.new_data_arrived = asyncio.Event()
         wating_for_new_data_task = asyncio.create_task(self.new_data_arrived.wait())
         event_streams = [
-            EventStream(self, index, **definition.__dict__) for index, definition in enumerate(callbacks_map)
+            EventStream(self, index, **definition.__dict__)
+            for index, definition in enumerate(chain(callbacks_map, background_tasks or []))
         ]
         _tasks = [asyncio.create_task(event_stream.handle_live_events()) for event_stream in event_streams]
         active_event_streams: List[EventStream] = event_streams
@@ -175,6 +192,8 @@ class Processor:
                 self.virtual_time = start_time
             with self.update_virtual_time():
                 on_start()
+        for event_stream in event_streams:
+            event_stream.start()
         while True:
             active_event_streams: List[EventStream] = [
                 event_stream for event_stream in active_event_streams if not event_stream.is_done()
@@ -289,6 +308,7 @@ def increase_virtual_time(delta: timedelta):
 
 def run(
     callbacks_map: List[tuple[Callable, Any, Any]],
+    background_tasks: Optional[List[BackgroundTaskDefinition]] = None,
     on_live_start: Optional[Callable] = None,
     start_time: Optional[datetime] = None,
     end_time: Optional[datetime] = None,
@@ -304,4 +324,4 @@ def run(
     """
     global current_processor
     current_processor = Processor()
-    return current_processor.run(callbacks_map, on_live_start, start_time, end_time, on_start)
+    return current_processor.run(callbacks_map, background_tasks, on_live_start, start_time, end_time, on_start)
