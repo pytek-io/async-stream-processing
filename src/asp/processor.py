@@ -100,7 +100,7 @@ class EventStream:
         self.run_callback(value)
 
     def start(self):
-        if not self.past_events_iter or self.future_event_stream:
+        if not (self.past_events_iter or self.future_event_stream):
             self.iterating_past_values = False
             self.unpack_args = True
             self.run_callback(())
