@@ -61,7 +61,6 @@ class EventStream:
         self.past_events_iter = past_events_iter
         self.future_event_stream = future_events_iter
         self._next_event_value: Any = None
-        self.asyncio_future: Optional[asyncio.Future] = None
         self.sleeping = False
         self.pending_events: List[Tuple[datetime, Any]] = []
         self.exhausted_live_values = False
@@ -78,21 +77,18 @@ class EventStream:
             not self.iterating_past_values
             and self.exhausted_live_values
             and not self.pending_events
-            and not self.asyncio_future
             and not self.sleeping
             and not self.pending_events_buffer
         )
 
     def execute_coroutine(self, coroutine: Coroutine):
-        self.asyncio_future = None
         try:
             future = coroutine.send(None)
+            self.sleeping = True
             if isinstance(future, Future):
-                self.sleeping = True
                 self.processor.call_later(future.delay, self.execute_coroutine, coroutine)
             else:
                 self.processor.awaiting_event_streams[future] = self, coroutine
-                self.asyncio_future = future
         except StopIteration:
             self.sleeping = False
 
@@ -118,17 +114,16 @@ class EventStream:
 
     def next_scheduled_event(self):
         next_event_time, callback = None, None
-        if not self.asyncio_future:
-            if self.pending_events:
-                next_event_time, callback = self.pending_events[0][0], self.process_next_scheduled_event
+        if not self.sleeping and self.pending_events:
+            next_event_time, callback = self.pending_events[0][0], self.process_next_scheduled_event
         if next_event_time:
             return next_event_time, callback
 
     def done(self):
-        return not any([self.pending_events, self.asyncio_future, self.sleeping])
+        return not any([self.pending_events, self.sleeping])
 
     def fast_forwarding(self):
-        return any([self.iterating_past_values, self.pending_events, self.asyncio_future, self.sleeping])
+        return any([self.iterating_past_values, self.pending_events, self.sleeping])
 
     def iterate_through_past_events(self, start_time: Optional[datetime], end_time: Optional[datetime]):
         if self.past_events_iter and not self.pending_events:
@@ -228,7 +223,7 @@ class Processor:
                     self.new_data_arrived.clear()
                     wating_for_new_data_task = asyncio.create_task(self.new_data_arrived.wait())
                 for event_stream, coroutine in sorted(
-                    map(self.awaiting_event_streams.pop, done), key=EventStream.priority
+                    map(self.awaiting_event_streams.pop, done), key=lambda x: x[0].priority()
                 ):
                     with self.update_virtual_time():
                         event_stream.execute_coroutine(coroutine)
