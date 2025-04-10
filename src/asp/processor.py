@@ -62,8 +62,7 @@ class EventStream:
         self.future_event_stream = future_events_iter
         self._next_event_value: Any = None
         self.asyncio_future: Optional[asyncio.Future] = None
-        self.current_coroutine: Optional[Coroutine] = None
-        self.sleep_end_time: Optional[datetime] = None
+        self.sleeping = False
         self.pending_events: List[Tuple[datetime, Any]] = []
         self.exhausted_live_values = False
         self.iterating_past_values = True
@@ -80,11 +79,24 @@ class EventStream:
             and self.exhausted_live_values
             and not self.pending_events
             and not self.asyncio_future
-            and not self.current_coroutine
+            and not self.sleeping
             and not self.pending_events_buffer
         )
 
-    def run_callback(self, value):
+    def execute_coroutine(self, coroutine: Coroutine):
+        self.asyncio_future = None
+        try:
+            future = coroutine.send(None)
+            if isinstance(future, Future):
+                self.sleeping = True
+                self.processor.call_later(future.delay, self.execute_coroutine, coroutine)
+            else:
+                self.processor.awaiting_event_streams[future] = self, coroutine
+                self.asyncio_future = future
+        except StopIteration:
+            self.sleeping = False
+
+    def evaluate_callback(self, value):
         if self.unpack_args:
             result = self.callback(*value)
         elif self.unpack_kwargs:
@@ -92,47 +104,31 @@ class EventStream:
         else:
             result = self.callback(value)
         if asyncio.iscoroutine(result):
-            self.current_coroutine = result
-            self.execute_coroutine()
+            self.execute_coroutine(result)
 
     def process_next_scheduled_event(self):
         _, value = self.pending_events.pop(0)
-        self.run_callback(value)
+        self.evaluate_callback(value)
 
     def start(self):
         if not (self.past_events_iter or self.future_event_stream):
             self.iterating_past_values = False
             self.unpack_args = True
-            self.run_callback(())
-
-    def execute_coroutine(self):
-        self.sleep_end_time = None
-        self.asyncio_future = None
-        try:
-            future = self.current_coroutine.send(None)
-            if isinstance(future, Future):
-                self.sleep_end_time = self.processor.now() + timedelta(seconds=future.delay)
-            else:
-                self.processor.awaiting_event_streams[future] = self
-                self.asyncio_future = future
-        except StopIteration:
-            self.current_coroutine = None
+            self.evaluate_callback(())
 
     def next_scheduled_event(self):
         next_event_time, callback = None, None
         if not self.asyncio_future:
-            if self.sleep_end_time:
-                next_event_time, callback = self.sleep_end_time, self.execute_coroutine
-            elif self.pending_events:
+            if self.pending_events:
                 next_event_time, callback = self.pending_events[0][0], self.process_next_scheduled_event
         if next_event_time:
             return next_event_time, callback
 
     def done(self):
-        return not any([self.pending_events, self.asyncio_future, self.current_coroutine])
+        return not any([self.pending_events, self.asyncio_future, self.sleeping])
 
     def fast_forwarding(self):
-        return any([self.iterating_past_values, self.pending_events, self.asyncio_future, self.current_coroutine])
+        return any([self.iterating_past_values, self.pending_events, self.asyncio_future, self.sleeping])
 
     def iterate_through_past_events(self, start_time: Optional[datetime], end_time: Optional[datetime]):
         if self.past_events_iter and not self.pending_events:
@@ -164,7 +160,7 @@ class Processor:
         self.live_callback: Optional[Callable] = None
         self.actual_time = datetime.now()
         self.virtual_time = datetime.min
-        self.awaiting_event_streams: Dict[asyncio.Future, EventStream] = {}
+        self.awaiting_event_streams: Dict[asyncio.Future, Tuple[EventStream, Coroutine]] = {}
         self.live = False
         self.scheduled_callbacks: List[ScheduledCallback] = []
         self.new_data_arrived: asyncio.Event
@@ -210,8 +206,7 @@ class Processor:
                         event_stream.pending_events_buffer.clear()
                     if self.live_callback:
                         self.live_callback()
-                    self.actual_time = datetime.now()
-                    self.virtual_time = datetime.now()
+                    self.actual_time = self.virtual_time = datetime.now()
             next_scheduled_events = list(filter(None, map(EventStream.next_scheduled_event, active_event_streams)))
             if self.scheduled_callbacks:
                 next_scheduled_events.append((self.scheduled_callbacks[0].timestamp, self.call_next_scheduled_callback))
@@ -219,7 +214,9 @@ class Processor:
             if self.awaiting_event_streams or not next_event_time or next_event_time > datetime.now():
                 timeout = None
                 if next_event_time and self.virtual_time:
-                    timeout = max(0, (next_event_time - self.virtual_time).total_seconds())
+                    timeout = max(
+                        0, (next_event_time - (datetime.now() if self.live else self.virtual_time)).total_seconds()
+                    )
                 with self.update_virtual_time():
                     done, _ = await asyncio.wait(
                         chain((wating_for_new_data_task,), self.awaiting_event_streams),
@@ -230,9 +227,11 @@ class Processor:
                     done.remove(wating_for_new_data_task)
                     self.new_data_arrived.clear()
                     wating_for_new_data_task = asyncio.create_task(self.new_data_arrived.wait())
-                for event_stream in sorted(map(self.awaiting_event_streams.pop, done), key=EventStream.priority):
+                for event_stream, coroutine in sorted(
+                    map(self.awaiting_event_streams.pop, done), key=EventStream.priority
+                ):
                     with self.update_virtual_time():
-                        event_stream.execute_coroutine()
+                        event_stream.execute_coroutine(coroutine)
             if next_event_time and next_event_time < datetime.now():
                 for event_time, callback in next_scheduled_events:
                     if event_time == next_event_time:
