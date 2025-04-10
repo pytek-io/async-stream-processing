@@ -12,6 +12,18 @@ current_processor: Processor
 EMPTY_ITERATOR = iter(())
 
 
+def evaluate_coroutine(coroutine: Coroutine):
+    try:
+        future = coroutine.send(None)
+    except StopIteration:
+        return False
+    if isinstance(future, Future):
+        current_processor.call_later(future.delay, evaluate_coroutine, coroutine)
+    else:
+        current_processor.awaiting_event_streams[future] = evaluate_coroutine, coroutine
+    return True
+
+
 @dataclass
 class ScheduledCallback:
     timestamp: datetime
@@ -19,7 +31,9 @@ class ScheduledCallback:
     args: Tuple
 
     def __call__(self):
-        self.callback(*self.args)
+        result = self.callback(*self.args)
+        if asyncio.iscoroutine(result):
+            evaluate_coroutine(result)
 
 
 @dataclass
@@ -88,7 +102,7 @@ class EventStream:
             if isinstance(future, Future):
                 self.processor.call_later(future.delay, self.execute_coroutine, coroutine)
             else:
-                self.processor.awaiting_event_streams[future] = self, coroutine
+                self.processor.awaiting_event_streams[future] = self.execute_coroutine, coroutine
         except StopIteration:
             self.sleeping = False
 
@@ -226,7 +240,7 @@ class Processor:
                     map(self.awaiting_event_streams.pop, done), key=lambda x: x[0].priority()
                 ):
                     with self.update_virtual_time():
-                        event_stream.execute_coroutine(coroutine)
+                        event_stream(coroutine)
             if next_event_time and next_event_time < datetime.now():
                 for event_time, callback in next_scheduled_events:
                     if event_time == next_event_time:

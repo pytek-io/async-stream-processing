@@ -28,6 +28,8 @@ class MyAlgo:
         self.exchange = exchange
 
     def on_exec_report(self, exec_report: ExecReport = None):
+        if self.last_id > 10:
+            return
         order = Order(order_id=self.last_id, price=self.last_price, qty=200, side="BUY")
         self.last_id += 1
         self.last_price += 0.01
@@ -45,8 +47,8 @@ class Exchange:
         self.last_price = 100.0
         self.last_id = 1
 
-    def on_new_order(self, exec_callback: Callable, order: Order):
-        # await asyncio.sleep(0.7)
+    async def on_new_order(self, exec_callback: Callable, order: Order):
+        await asp.sleep(0.7)
         exec_report = ExecReport(order_id=order.order_id, status="ACK")
         asp.call_later(0.7, exec_callback, exec_report)
 
