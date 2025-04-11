@@ -7,7 +7,7 @@ from typing import Tuple
 import asp
 from asp import EventStreamDefinition
 
-from common import log
+from asp.testing import log
 
 
 @dataclass

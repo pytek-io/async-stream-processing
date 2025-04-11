@@ -9,7 +9,7 @@ from typing import Dict, List
 import asp
 from asp import EventStreamDefinition
 
-from common import log
+from asp.testing import log
 
 
 @dataclass

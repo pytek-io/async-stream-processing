@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 import asp
 from asp import EventStreamDefinition
-from common import merge_timeseries, log
+from asp.testing import merge_timeseries, log
 
 
 class Calculator:

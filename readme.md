@@ -17,7 +17,7 @@ We introduce a couple of auxilliary methods in order to keep examples short.
 import asyncio
 from datetime import datetime, timedelta
 
-from common import NAMES, log, timestamp
+from asp.testing import NAMES, log, timestamp
 
 import asp
 from asp import EventStreamDefinition
