@@ -181,7 +181,7 @@ class Processor:
         self.new_data_arrived = asyncio.Event()
         wating_for_new_data_task = asyncio.create_task(self.new_data_arrived.wait())
         event_streams = [
-            EventStream(self, next(index), **definition.__dict__) for index, definition in enumerate(callbacks_map)
+            EventStream(self, index, **definition.__dict__) for index, definition in enumerate(callbacks_map)
         ]
         _tasks = [asyncio.create_task(event_stream.handle_live_events()) for event_stream in event_streams]
         for coroutine in background_tasks or []:
