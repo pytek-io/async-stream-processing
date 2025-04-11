@@ -34,11 +34,6 @@ class EventStreamDefinition:
 
 
 @dataclass
-class BackgroundTaskDefinition:
-    callback: Callable
-
-
-@dataclass
 class Future:
     delay: float
 
@@ -316,7 +311,7 @@ def increase_virtual_time(delta: timedelta):
 
 def run(
     callbacks_map: List[tuple[Callable, Any, Any]] = [],
-    background_tasks: Optional[List[BackgroundTaskDefinition]] = None,
+    background_tasks: Optional[List[Coroutine]] = None,
     on_live_start: Optional[Callable] = None,
     start_time: Optional[datetime] = None,
     end_time: Optional[datetime] = None,
