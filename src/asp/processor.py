@@ -177,6 +177,8 @@ class Processor:
         end_time: Optional[datetime] = None,
         on_start: Optional[Callable] = None,
     ):
+        if start_time:
+            self.virtual_time = start_time
         self.live_callback = on_live_start
         self.new_data_arrived = asyncio.Event()
         wating_for_new_data_task = asyncio.create_task(self.new_data_arrived.wait())
@@ -187,8 +189,6 @@ class Processor:
         for coroutine in background_tasks or []:
             self.evaluate_coroutine(coroutine)
         active_event_streams: List[EventStream] = event_streams
-        if start_time:
-            self.virtual_time = start_time
         if on_start:
             with self.update_virtual_time():
                 on_start()
@@ -328,3 +328,9 @@ def run(
     global current_processor
     current_processor = Processor()
     return current_processor.run(callbacks_map, background_tasks, on_live_start, start_time, end_time, on_start)
+
+
+async def timer(step: timedelta, callback: Callable):
+    while True:
+        await sleep(step.total_seconds())
+        callback()

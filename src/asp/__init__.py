@@ -1,11 +1,12 @@
-from .processor import call_later, run, sleep, now, EventStreamDefinition
 from . import testing
+from .processor import EventStreamDefinition, call_later, now, run, sleep, timer
 
 __all__ = [
+    "EventStreamDefinition",
     "call_later",
+    "now",
     "run",
     "sleep",
-    "now",
-    "EventStreamDefinition",
     "testing",
+    "timer",
 ]

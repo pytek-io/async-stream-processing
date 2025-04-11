@@ -1,9 +1,9 @@
 import asyncio
-
+import polars as pl
 import asp
-from typing import Callable
 from datetime import datetime, timedelta
 from asp.testing import log, merge_timeseries
+
 
 st = datetime(2020, 1, 1)
 prices_data = [
@@ -31,70 +31,66 @@ volume_data = [
 ]
 
 
-class MVA:
-    def __init__(self):
-        self.prices = []
-        self.volumes = []
-        self.mva = 0
-        self.mva_volume = 0
-        self.mva_price = 0
+class MovingAverage:
+    def __init__(self, interval: timedelta, min_windows: timedelta):
+        self.interval = interval
+        self.min_windows = min_windows
+        self.last_timestamp = None
+        self.values: pl.DataFrame = pl.DataFrame(
+            schema=[
+                ("timestamp", pl.Datetime),
+                ("value", pl.Float64),
+                ("weight", pl.Float64),
+            ]
+        )
 
-    def on_price_update(self, price: float, volume: float):
-        self.prices.append(price)
-        if len(self.prices) > self.period:
-            self.prices.pop(0)
+    def __call__(self, timestamp: datetime):
+        filtered = self.values.filter(pl.col("timestamp") >= timestamp - self.interval)
+        if filtered.is_empty():
+            return None
+        return (filtered["value"] * filtered["weight"]).sum() / filtered["weight"].sum()
 
     def reset(self):
-        self.prices = []
-        self.volumes = []
-        self.mva = 0
-        self.mva_volume = 0
-        self.mva_price = 0
+        self.values.clear()
 
-
-class ExponentialMovingAverage:
-    def __init__(self, period: int):
-        self.period = period
-        self.mva = 0
-
-    def on_price_update(self, price: float):
-        if not self.mva:
-            self.mva = price
-        else:
-            self.mva = (price - self.mva) * (2 / (self.period + 1)) + self.mva
-        log(f"Exponential Moving Average: {self.mva:.2f}")
-
-
-async def timer(step: timedelta, callback: Callable):
-    while True:
-        callback()
-        await asp.sleep(step.total_seconds())
+    def add_value(self, timestamp: datetime, value: float, weight: float):
+        new_row = pl.DataFrame(
+            data=[[timestamp, value, weight]], schema=self.values.schema, orient="row"
+        )
+        self.values = self.values.filter(
+            pl.col("timestamp") >= timestamp - self.interval
+        ).vstack(new_row)
 
 
 def main():
-    data = merge_timeseries({"prices": prices_data, "volumes": volume_data})
-    mva = MVA()
-    ema = ExponentialMovingAverage(period=5)
+    data = merge_timeseries({"value": prices_data, "weight": volume_data})
+    mva = MovingAverage(interval=timedelta(minutes=2), min_windows=timedelta(minutes=1))
+    cummulative_volume = 0
 
-    def reset():
-        mva.reset()
-        ema.reset()
+    def update(value: float, weight: float):
+        nonlocal cummulative_volume
+        timestamp = asp.now()
+        mva.add_value(timestamp, value, weight)
+        cummulative_volume += weight
 
-    def trigger(price: float, volume: float):
-        log(f"Moving Average: {mva.mva:.2f} Volume: {mva.mva_volume:.2f}")
-        log(f"Exponential Moving Average: {ema.mva:.2f}")
-
-    def print_hello():
-        log("Hello")
-
-    def on_price_update(price: float):
-        mva.on_price_update(price, 0)
-        ema.on_price_update(price)
+    def print_values():
+        if cummulative_volume > 0:
+            mva_value = mva(asp.now())
+            vwap = f"{mva(asp.now()):g}" if mva_value is not None else "none"
+            log(f"VWAP: {vwap}\t Cum. Vol:{cummulative_volume:.2f}")
 
     asyncio.run(
         asp.run(
-            background_tasks=[timer(timedelta(minutes=1), print_hello)],
+            [
+                asp.EventStreamDefinition(
+                    callback=update,
+                    past_events_iter=data,
+                    unpack_kwargs=True,
+                )
+            ],
             start_time=st,
+            end_time=st + timedelta(minutes=10),
+            background_tasks=[asp.timer(timedelta(minutes=1), print_values)],
         )
     )
 
