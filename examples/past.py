@@ -1,10 +1,10 @@
 import asyncio
 from datetime import datetime, timedelta
 
-from common import NAMES, log, timestamp
-
 import asp
 from asp import EventStreamDefinition
+
+from common import NAMES, log, timestamp
 
 
 class Greeter:
