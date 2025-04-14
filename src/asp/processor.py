@@ -7,7 +7,8 @@ from itertools import chain
 from typing import Any, AsyncIterator, Callable, Coroutine, Dict, List, Optional, Tuple, Iterator
 from contextlib import contextmanager
 
-current_processor: Processor
+print("Running in async mode")
+current_processor: Processor = None
 
 EMPTY_ITERATOR = iter(())
 
@@ -156,6 +157,8 @@ class Processor:
         self.live = False
         self.scheduled_callbacks: List[ScheduledCallback] = []
         self.new_data_arrived: asyncio.Event
+        self.event_streams: List[EventStream] = []
+        self.tasks: List[asyncio.Task] = []
 
     def evaluate_coroutine(self, coroutine: Coroutine):
         try:
@@ -167,6 +170,12 @@ class Processor:
         else:
             current_processor.awaiting_event_streams[future] = self.evaluate_coroutine, coroutine
         return True
+
+    def add_event_stream(self, definition: EventStreamDefinition):
+        event_stream = EventStream(self, len(self.event_streams), **definition.__dict__)
+        self.event_streams.append(event_stream)
+        event_stream.start()
+        self.tasks.append(asyncio.create_task(event_stream.handle_live_events()))
 
     async def run(
         self,
@@ -181,22 +190,20 @@ class Processor:
             self.virtual_time = start_time
         self.live_callback = on_live_start
         self.new_data_arrived = asyncio.Event()
-        wating_for_new_data_task = asyncio.create_task(self.new_data_arrived.wait())
-        event_streams = [
-            EventStream(self, index, **definition.__dict__) for index, definition in enumerate(callbacks_map)
-        ]
-        _tasks = [asyncio.create_task(event_stream.handle_live_events()) for event_stream in event_streams]
+        waiting_for_new_data_task = asyncio.create_task(self.new_data_arrived.wait())
+        for definition in callbacks_map:
+            self.add_event_stream(definition)
         for coroutine in background_tasks or []:
             self.evaluate_coroutine(coroutine)
-        active_event_streams: List[EventStream] = event_streams
+        active_event_streams: List[EventStream] = self.event_streams
         if on_start:
             with self.update_virtual_time():
                 on_start()
-        for event_stream in event_streams:
+        for event_stream in self.event_streams:
             event_stream.start()
         while not end_time or self.now() < end_time:
             active_event_streams: List[EventStream] = [
-                event_stream for event_stream in active_event_streams if not event_stream.is_done()
+                event_stream for event_stream in self.event_streams if not event_stream.is_done()
             ]
             if not (active_event_streams or self.scheduled_callbacks):
                 break
@@ -223,14 +230,14 @@ class Processor:
                     )
                 with self.update_virtual_time():
                     done, _ = await asyncio.wait(
-                        chain((wating_for_new_data_task,), self.awaiting_event_streams),
+                        chain((waiting_for_new_data_task,), self.awaiting_event_streams),
                         timeout=timeout,
                         return_when=asyncio.FIRST_COMPLETED,
                     )
-                if wating_for_new_data_task in done:
-                    done.remove(wating_for_new_data_task)
+                if waiting_for_new_data_task in done:
+                    done.remove(waiting_for_new_data_task)
                     self.new_data_arrived.clear()
-                    wating_for_new_data_task = asyncio.create_task(self.new_data_arrived.wait())
+                    waiting_for_new_data_task = asyncio.create_task(self.new_data_arrived.wait())
                 for event_stream, coroutine in sorted(
                     map(self.awaiting_event_streams.pop, done), key=lambda x: x[0].priority()
                 ):
@@ -244,7 +251,7 @@ class Processor:
                             self.virtual_time = event_time
                         with self.update_virtual_time():
                             callback()
-        wating_for_new_data_task.cancel()
+        waiting_for_new_data_task.cancel()
 
     @contextmanager
     def update_virtual_time(self):
@@ -301,7 +308,7 @@ def now() -> datetime:
 
 def increase_virtual_time(delta: timedelta):
     """
-    Increase the virtual time by a given delta, to be used for testing puposes.
+    Increase the virtual time by a given delta, to be used for testing purposes.
     :param
     delta: Time delta to increase the virtual time."
     :return: None
@@ -309,8 +316,19 @@ def increase_virtual_time(delta: timedelta):
     current_processor.increase_virtual_time(delta)
 
 
+def add_event_stream(
+    event_stream: EventStreamDefinition,
+):
+    """
+    Add an event stream to the processor.
+    :param event_stream: Event stream to be added.
+    :return: None
+    """
+    current_processor.add_event_stream(event_stream)
+
+
 def run(
-    callbacks_map: List[tuple[Callable, Any, Any]] = [],
+    callbacks_map: List[EventStreamDefinition] = [],
     background_tasks: Optional[List[Coroutine]] = None,
     on_live_start: Optional[Callable] = None,
     start_time: Optional[datetime] = None,
