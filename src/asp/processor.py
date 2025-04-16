@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from itertools import chain
-from typing import Any, AsyncIterator, Callable, Coroutine, Dict, List, Optional, Tuple, Iterator
-from contextlib import contextmanager
+from typing import Any, AsyncIterator, Callable, Coroutine, Dict, Iterable, Iterator, List, Optional, Tuple
+from functools import wraps
 
-print("Running in async mode")
-current_processor: Processor = None
+current_processor: Processor = None  # type: ignore
 
 EMPTY_ITERATOR = iter(())
 
@@ -28,7 +28,7 @@ class ScheduledCallback:
 @dataclass
 class EventStreamDefinition:
     callback: Callable
-    past_events_iter: Iterator[Any] = EMPTY_ITERATOR
+    past_events_iter: Iterable[Any] = EMPTY_ITERATOR
     future_events_iter: Optional[AsyncIterator[Any]] = None
     unpack_args: bool = False
     unpack_kwargs: bool = False
@@ -42,20 +42,30 @@ class Future:
         yield self
 
 
+def wrap_async_callback(event_stream: EventStream, callback: Callable):
+    @wraps(callback)
+    async def wrapped_callback(*args, **kwargs):
+        event_stream.sleeping = True
+        await callback(*args, **kwargs)
+        event_stream.sleeping = False
+
+    return wrapped_callback
+
+
 class EventStream:
     def __init__(
         self,
         processor: Processor,
         index: int,
-        callback,
-        past_events_iter: Optional[AsyncIterator[Any]] = None,
+        callback: Callable,
+        past_events_iter: Optional[Iterator[Any]] = None,
         future_events_iter: Optional[AsyncIterator[Any]] = None,
         unpack_args: bool = False,
         unpack_kwargs: bool = False,
     ):
         self.processor: Processor = processor
         self._priority: int = index
-        self.callback: Callable[[Any], None] = callback
+        self.callback = wrap_async_callback(self, callback) if asyncio.iscoroutinefunction(callback) else callback
         self.past_events_iter = past_events_iter
         self.future_event_stream = future_events_iter
         self._next_event_value: Any = None
@@ -79,17 +89,6 @@ class EventStream:
             and not self.pending_events_buffer
         )
 
-    def execute_coroutine(self, coroutine: Coroutine):
-        try:
-            future = coroutine.send(None)
-            self.sleeping = True
-            if isinstance(future, Future):
-                self.processor.call_later(future.delay, self.execute_coroutine, coroutine)
-            else:
-                self.processor.awaiting_event_streams[future] = self.execute_coroutine, coroutine
-        except StopIteration:
-            self.sleeping = False
-
     def evaluate_callback(self, value):
         if self.unpack_args:
             result = self.callback(*value)
@@ -98,7 +97,7 @@ class EventStream:
         else:
             result = self.callback(value)
         if asyncio.iscoroutine(result):
-            self.execute_coroutine(result)
+            self.processor.evaluate_coroutine(result)
 
     def process_next_scheduled_event(self):
         _, value = self.pending_events.pop(0)
@@ -153,7 +152,7 @@ class Processor:
         self.live_callback: Optional[Callable] = None
         self.actual_time = datetime.now()
         self.virtual_time = datetime.min
-        self.awaiting_event_streams: Dict[asyncio.Future, Tuple[EventStream, Coroutine]] = {}
+        self.awaiting_coroutines: Dict[asyncio.Future, Coroutine] = {}
         self.live = False
         self.scheduled_callbacks: List[ScheduledCallback] = []
         self.new_data_arrived: asyncio.Event
@@ -168,7 +167,7 @@ class Processor:
         if isinstance(future, Future):
             current_processor.call_later(future.delay, self.evaluate_coroutine, coroutine)
         else:
-            current_processor.awaiting_event_streams[future] = self.evaluate_coroutine, coroutine
+            current_processor.awaiting_coroutines[future] = coroutine
         return True
 
     def add_event_stream(self, definition: EventStreamDefinition):
@@ -179,8 +178,8 @@ class Processor:
 
     async def run(
         self,
-        callbacks_map: List[tuple[Callable, Any, Any]] = [],
-        background_tasks: List[Coroutine] = None,
+        callbacks_map: List[EventStreamDefinition] = [],
+        background_tasks: List[Coroutine] = [],
         on_live_start: Optional[Callable] = None,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
@@ -191,8 +190,8 @@ class Processor:
         self.live_callback = on_live_start
         self.new_data_arrived = asyncio.Event()
         waiting_for_new_data_task = asyncio.create_task(self.new_data_arrived.wait())
-        for definition in callbacks_map:
-            self.add_event_stream(definition)
+        for event_stream_definition in callbacks_map:
+            self.add_event_stream(event_stream_definition)
         for coroutine in background_tasks or []:
             self.evaluate_coroutine(coroutine)
         active_event_streams: List[EventStream] = self.event_streams
@@ -222,7 +221,7 @@ class Processor:
             if self.scheduled_callbacks:
                 next_scheduled_events.append((self.scheduled_callbacks[0].timestamp, self.call_next_scheduled_callback))
             next_event_time = min(next_scheduled_events, key=lambda x: x[0], default=(None, None))[0]
-            if self.awaiting_event_streams or not next_event_time or next_event_time > datetime.now():
+            if self.awaiting_coroutines or not next_event_time or next_event_time > datetime.now():
                 timeout = None
                 if next_event_time and self.virtual_time:
                     timeout = max(
@@ -230,7 +229,7 @@ class Processor:
                     )
                 with self.update_virtual_time():
                     done, _ = await asyncio.wait(
-                        chain((waiting_for_new_data_task,), self.awaiting_event_streams),
+                        chain((waiting_for_new_data_task,), self.awaiting_coroutines),
                         timeout=timeout,
                         return_when=asyncio.FIRST_COMPLETED,
                     )
@@ -238,11 +237,9 @@ class Processor:
                     done.remove(waiting_for_new_data_task)
                     self.new_data_arrived.clear()
                     waiting_for_new_data_task = asyncio.create_task(self.new_data_arrived.wait())
-                for event_stream, coroutine in sorted(
-                    map(self.awaiting_event_streams.pop, done), key=lambda x: x[0].priority()
-                ):
+                for coroutine in map(self.awaiting_coroutines.pop, done):
                     with self.update_virtual_time():
-                        event_stream(coroutine)
+                        self.evaluate_coroutine(coroutine)
             if next_event_time and next_event_time < datetime.now():
                 for event_time, callback in next_scheduled_events:
                     if event_time == next_event_time:
@@ -329,7 +326,7 @@ def add_event_stream(
 
 def run(
     callbacks_map: List[EventStreamDefinition] = [],
-    background_tasks: Optional[List[Coroutine]] = None,
+    background_tasks: List[Coroutine] = [],
     on_live_start: Optional[Callable] = None,
     start_time: Optional[datetime] = None,
     end_time: Optional[datetime] = None,

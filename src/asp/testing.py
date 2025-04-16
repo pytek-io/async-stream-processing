@@ -1,7 +1,7 @@
 import asyncio
 from datetime import datetime, timedelta
 from itertools import chain
-from typing import Any, Dict, Iterator, Tuple
+from typing import Any, Dict, Iterable, Tuple
 
 import asp
 
@@ -29,7 +29,7 @@ def timestamp(values, start, delay=1):
     return zip(timestamp_generator(), values)
 
 
-def merge_timeseries(timeseries: Dict[str, Iterator[Tuple[datetime, Any]]]):
+def merge_timeseries(timeseries: Dict[str, Iterable[Tuple[datetime, Any]]]):
     # TODO: ask chatgpt to generate a version using iterators only
     timeseries = {k: dict(v) for k, v in timeseries.items()}
     for date in sorted(set(chain.from_iterable(timeseries.values()))):
