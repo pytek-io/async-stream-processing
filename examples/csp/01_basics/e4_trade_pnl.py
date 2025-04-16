@@ -50,11 +50,11 @@ class Book:
         self.compute_pnl()
 
     def on_new_quote(self, quote: Tuple[bool, float]):
-        bid, quote = quote
-        if bid:
-            self.last_bid = quote
+        bid_or_ask, value = quote
+        if bid_or_ask:
+            self.last_bid = value
         else:
-            self.last_ask = quote
+            self.last_ask = value
         if mid := self.mid():
             log(f"Mid: {mid:.2f}")
 

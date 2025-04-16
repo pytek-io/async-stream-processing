@@ -29,7 +29,7 @@ class MyAlgo:
         self.last_price = 100.0
         self.exchange = exchange
 
-    def on_exec_report(self, exec_report: ExecReport = None):
+    def on_exec_report(self, exec_report: ExecReport | None = None):
         if exec_report:
             log(
                 f"Received exec report for order id:{exec_report.order_id} status {exec_report.status}"

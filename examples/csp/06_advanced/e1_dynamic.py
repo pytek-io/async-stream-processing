@@ -23,15 +23,15 @@ def process_symbol(order: Order):
     )
 
 
-def iterate_orders_for_symbol(orders: Iterable[Tuple[timedelta, Order]], symbol: str):
+def iterate_orders_for_symbol(orders: Iterable[Tuple[datetime, Order]], symbol: str):
     for timestamp, order in orders:
         if order.symbol == symbol:
             yield timestamp, order
 
 
 def classify_orders(
-    orders: Iterable[Tuple[timedelta, Order]],
-) -> Iterable[Tuple[timedelta, Iterable[Tuple[timedelta, Order]]]]:
+    orders: Iterable[Tuple[datetime, Order]],
+) -> Iterable[Tuple[datetime, Iterable[Tuple[datetime, Order]]]]:
     symbols = set()
     for timestamp, order in orders:
         if order.symbol not in symbols:
