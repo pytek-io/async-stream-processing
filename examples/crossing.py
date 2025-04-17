@@ -4,23 +4,33 @@ from datetime import datetime, timedelta
 import asp
 from asp import EventStreamDefinition
 
-from common import NAMES, Greeter, create_async_generator, timestamp
+from common import NAMES, Greeter
+
+
+async def create_async_generator(values, delay=1):
+    """ "
+    Yield values in the future with a delay.
+    """
+    current = datetime.now() - timedelta(seconds=60)
+    for name in NAMES:
+        yield current, name
+        current += timedelta(seconds=delay)
+    print("** Running live **")
+    for name in values:
+        yield datetime.now(), name
+        await asyncio.sleep(delay)
 
 
 def main():
     greeter = Greeter()
-    past_queue = timestamp(NAMES[:2], datetime.now() - timedelta(seconds=60), delay=1)
-    live_queue = create_async_generator(NAMES[2:], delay=1)
+    live_queue = create_async_generator(NAMES, delay=1)
     asyncio.run(
         asp.run(
             [
                 EventStreamDefinition(
-                    callback=greeter.greet,
-                    past_events_iter=past_queue,
-                    future_events_iter=live_queue,
+                    callback=greeter.greet, future_events_iter=live_queue
                 )
             ],
-            on_live_start=lambda: print("** Running live **"),
         )
     )
 

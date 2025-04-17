@@ -28,7 +28,6 @@ class ScheduledCallback:
 @dataclass
 class EventStreamDefinition:
     callback: Callable
-    past_events_iter: Iterable[Any] = EMPTY_ITERATOR
     future_events_iter: Optional[AsyncIterator[Any]] = None
     unpack_args: bool = False
     unpack_kwargs: bool = False
@@ -58,7 +57,6 @@ class EventStream:
         processor: Processor,
         index: int,
         callback: Callable,
-        past_events_iter: Optional[Iterator[Any]] = None,
         future_events_iter: Optional[AsyncIterator[Any]] = None,
         unpack_args: bool = False,
         unpack_kwargs: bool = False,
@@ -66,29 +64,26 @@ class EventStream:
         self.processor: Processor = processor
         self._priority: int = index
         self.callback = wrap_async_callback(self, callback) if asyncio.iscoroutinefunction(callback) else callback
-        self.past_events_iter = past_events_iter
         self.future_event_stream = future_events_iter
         self._next_event_value: Any = None
         self.sleeping = False
         self.pending_events: List[Tuple[datetime, Any]] = []
         self.exhausted_live_values = False
-        self.iterating_past_values = True
         self.pending_events_buffer: List[Tuple[datetime, Any]] = []
         self.unpack_args = unpack_args
         self.unpack_kwargs = unpack_kwargs
+        self.ready_for_next_event = asyncio.Event()
+        self.ready_for_next_event.set()
 
     def priority(self):
         return self._priority
 
     def is_done(self):
-        return (
-            not self.iterating_past_values
-            and self.exhausted_live_values
-            and not self.pending_events
-            and not self.sleeping
-            and not self.pending_events_buffer
-        )
-
+        r = self.exhausted_live_values and not self.pending_events and not self.sleeping
+        if r:
+            print(f"Event stream {self._priority} is done")
+        return r
+    
     def evaluate_callback(self, value):
         if self.unpack_args:
             result = self.callback(*value)
@@ -101,11 +96,11 @@ class EventStream:
 
     def process_next_scheduled_event(self):
         _, value = self.pending_events.pop(0)
+        self.ready_for_next_event.set()
         self.evaluate_callback(value)
 
     def start(self):
-        if not (self.past_events_iter or self.future_event_stream):
-            self.iterating_past_values = False
+        if not self.future_event_stream:
             self.unpack_args = True
             self.evaluate_callback(())
 
@@ -119,45 +114,28 @@ class EventStream:
     def done(self):
         return not any([self.pending_events, self.sleeping])
 
-    def fast_forwarding(self):
-        return any([self.iterating_past_values, self.pending_events, self.sleeping])
-
-    def iterate_through_past_events(self, start_time: Optional[datetime], end_time: Optional[datetime]):
-        if self.past_events_iter and not self.pending_events:
-            try:
-                while True:
-                    timestamp, value = next(self.past_events_iter)
-                    if start_time and timestamp < start_time:
-                        continue
-                    if end_time and timestamp >= end_time:
-                        raise StopIteration
-                    self.pending_events.append((timestamp, value))
-            except StopIteration:
-                self.iterating_past_values = False
-
     async def handle_live_events(self):
         if self.future_event_stream:
-            async for value in self.future_event_stream:
-                if self.processor.live:
-                    self.pending_events.append((datetime.now(), value))
-                    self.processor.new_data_arrived.set()
-                else:
-                    self.pending_events_buffer.append((datetime.now(), value))
+            async for timestamp, value in self.future_event_stream:
+                self.pending_events.append((timestamp, value))
+                self.processor.new_data_arrived.set()
+                await self.ready_for_next_event.wait()
+                self.ready_for_next_event.clear()
+
         self.processor.new_data_arrived.set()
         self.exhausted_live_values = True
 
 
 class Processor:
     def __init__(self):
-        self.live_callback: Optional[Callable] = None
         self.actual_time = datetime.now()
         self.virtual_time = datetime.min
-        self.awaiting_coroutines: Dict[asyncio.Future, Coroutine] = {}
-        self.live = False
+        self.live = True
         self.scheduled_callbacks: List[ScheduledCallback] = []
         self.new_data_arrived: asyncio.Event
         self.event_streams: List[EventStream] = []
         self.tasks: List[asyncio.Task] = []
+        self.awaiting_coroutines: Dict[asyncio.Future, Coroutine] = {}
 
     def evaluate_coroutine(self, coroutine: Coroutine):
         try:
@@ -180,19 +158,17 @@ class Processor:
         self,
         callbacks_map: List[EventStreamDefinition] = [],
         background_tasks: List[Coroutine] = [],
-        on_live_start: Optional[Callable] = None,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
         on_start: Optional[Callable] = None,
     ):
         if start_time:
             self.virtual_time = start_time
-        self.live_callback = on_live_start
         self.new_data_arrived = asyncio.Event()
         waiting_for_new_data_task = asyncio.create_task(self.new_data_arrived.wait())
         for event_stream_definition in callbacks_map:
             self.add_event_stream(event_stream_definition)
-        for coroutine in background_tasks or []:
+        for coroutine in background_tasks:
             self.evaluate_coroutine(coroutine)
         active_event_streams: List[EventStream] = self.event_streams
         if on_start:
@@ -206,27 +182,14 @@ class Processor:
             ]
             if not (active_event_streams or self.scheduled_callbacks):
                 break
-            if not self.live:
-                for event_stream in active_event_streams:
-                    event_stream.iterate_through_past_events(start_time, end_time)
-                if not (any(map(EventStream.fast_forwarding, active_event_streams)) or self.scheduled_callbacks):
-                    self.live = True
-                    for event_stream in active_event_streams:
-                        event_stream.pending_events.extend(event_stream.pending_events_buffer)
-                        event_stream.pending_events_buffer.clear()
-                    if self.live_callback:
-                        self.live_callback()
-                    self.actual_time = self.virtual_time = datetime.now()
             next_scheduled_events = list(filter(None, map(EventStream.next_scheduled_event, active_event_streams)))
             if self.scheduled_callbacks:
                 next_scheduled_events.append((self.scheduled_callbacks[0].timestamp, self.call_next_scheduled_callback))
             next_event_time = min(next_scheduled_events, key=lambda x: x[0], default=(None, None))[0]
-            if self.awaiting_coroutines or not next_event_time or next_event_time > datetime.now():
+            if not next_event_time or self.awaiting_coroutines:
                 timeout = None
                 if next_event_time and self.virtual_time:
-                    timeout = max(
-                        0, (next_event_time - (datetime.now() if self.live else self.virtual_time)).total_seconds()
-                    )
+                    timeout = max(0, (next_event_time - datetime.now()).total_seconds())
                 with self.update_virtual_time():
                     done, _ = await asyncio.wait(
                         chain((waiting_for_new_data_task,), self.awaiting_coroutines),
@@ -240,21 +203,17 @@ class Processor:
                 for coroutine in map(self.awaiting_coroutines.pop, done):
                     with self.update_virtual_time():
                         self.evaluate_coroutine(coroutine)
-            if next_event_time and next_event_time < datetime.now():
+            if next_event_time:
                 for event_time, callback in next_scheduled_events:
                     if event_time == next_event_time:
-                        if not self.live and self.virtual_time < event_time:
-                            self.actual_time = datetime.now()
-                            self.virtual_time = event_time
-                        with self.update_virtual_time():
+                        with self.update_virtual_time(event_time):
                             callback()
         waiting_for_new_data_task.cancel()
 
     @contextmanager
-    def update_virtual_time(self):
-        if self.live:
-            yield
-            return
+    def update_virtual_time(self, event_time: datetime | None = None):
+        if event_time is not None:
+            self.virtual_time = event_time
         start = datetime.now()
         yield
         now = datetime.now()
@@ -265,7 +224,7 @@ class Processor:
         self.scheduled_callbacks.pop(0)()
 
     def now(self) -> datetime:
-        return datetime.now() if self.live else self.virtual_time + (datetime.now() - self.actual_time)
+        return self.virtual_time + (datetime.now() - self.actual_time)
 
     def call_later(self, delay: float, callback: Callable, *args):
         self.scheduled_callbacks.append(ScheduledCallback(self.now() + timedelta(seconds=delay), callback, args))
@@ -297,7 +256,7 @@ def call_later(delay: float, callback: Callable, *args):
 
 def now() -> datetime:
     """
-    Get the current time. This is the virtual time if the processor is not live.
+    Get the current time.
     :return: Current time.
     """
     return current_processor.now()
@@ -327,7 +286,6 @@ def add_event_stream(
 def run(
     callbacks_map: List[EventStreamDefinition] = [],
     background_tasks: List[Coroutine] = [],
-    on_live_start: Optional[Callable] = None,
     start_time: Optional[datetime] = None,
     end_time: Optional[datetime] = None,
     on_start: Optional[Callable] = None,
@@ -335,14 +293,13 @@ def run(
     """
     Run the processor with the given callbacks map.
     :param callbacks_map: List of EventStreamDefinition objects.
-    :param on_live_start: Callback function to be called when the processor starts running live.
     :param start_time: Start time for the past events.
     :param end_time: End time for the past events.
     :return: Awaitable object.
     """
     global current_processor
     current_processor = Processor()
-    return current_processor.run(callbacks_map, background_tasks, on_live_start, start_time, end_time, on_start)
+    return current_processor.run(callbacks_map, background_tasks, start_time, end_time, on_start)
 
 
 async def timer(step: timedelta, callback: Callable):
