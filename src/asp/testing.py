@@ -14,26 +14,18 @@ async def create_async_generator(values, delay=1):
         await asyncio.sleep(delay)
 
 
-def timestamp(values, start, delay=1):
-    """
-    Yield values in the future with a delay.
-    """
-
-    def timestamp_generator():
-        nonlocal start
-        while True:
-            yield start
-            start += timedelta(seconds=delay)
-
-    return zip(timestamp_generator(), values)
-
+def timestamps(start: datetime, delay: timedelta):
+    current_time = start
+    while True:
+        yield current_time
+        current_time += delay
 
 
 def merge_timeseries(
     timeseries: Dict[str, Iterable[Tuple[datetime, Any]]],
 ) -> Iterator[Tuple[datetime, Dict[str, Any]]]:
-        for values in zip(*(iter(ts) for ts in timeseries.values())):
-            yield values[0][0], dict(zip(timeseries, [v for _, v in values]))
+    for values in zip(*(iter(ts) for ts in timeseries.values())):
+        yield values[0][0], dict(zip(timeseries, [v for _, v in values]))
 
 
 def log(*args: Any):

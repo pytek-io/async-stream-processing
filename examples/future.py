@@ -1,8 +1,8 @@
 import asyncio
 
-from common import NAMES, Greeter, create_async_generator
-
 import asp
+
+from common import NAMES, Greeter, create_async_generator
 
 
 def main():

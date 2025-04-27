@@ -7,9 +7,9 @@ from common import log
 
 
 async def say_hello():
-    log("sleeping for 1 second")
+    log(asp.now(), "sleeping for 1 second")
     await asp.sleep(1)
-    log("hello")
+    log(asp.now(), "hello")
 
 
 def main():

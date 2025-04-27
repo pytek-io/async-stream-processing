@@ -3,12 +3,15 @@ from datetime import datetime, timedelta
 
 import asp
 
-from common import NAMES, Greeter, create_async_generator, timestamp
+from common import NAMES, Greeter, create_async_generator, timestamps
 
 
 def main():
     greeter = Greeter()
-    past_queue = timestamp(NAMES[:2], datetime.now() - timedelta(seconds=60), delay=1)
+    past_queue = zip(
+        timestamps(datetime.now() - timedelta(seconds=60), delay=timedelta(seconds=1)),
+        NAMES[:2],
+    )
     live_queue = create_async_generator(NAMES[2:], delay=1)
     asyncio.run(
         asp.run(

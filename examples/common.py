@@ -1,45 +1,35 @@
-from humanize import precisedelta
 from datetime import datetime, timedelta
 import asp
-from asp.testing import create_async_generator, timestamp  # noqa: F401
+from asp.testing import create_async_generator, timestamps  # noqa: F401
 
 NAMES = ["Jane", "John", "Sarah", "Paul", "Jane"]
 
 
-def elapsed_time(clock):
-    previous_actual_time = clock()
-    while True:
-        now = clock()
-        elapsed = precisedelta(now - previous_actual_time)
-        previous_actual_time = now
-        yield elapsed
+def format(timestamp: datetime):
+    return f"{timestamp:%H:%M:%S.%f}"
 
 
-actual_time = iter(elapsed_time(datetime.now))
-virtual_time = iter(elapsed_time(asp.now))
-
-
-def log(msg):
-    print(f"{next(actual_time)}, {next(virtual_time)}: {msg}", flush=True)
+def log(timestamp: datetime, msg: str):
+    print(f"{format(datetime.now())} {format(asp.now())} {format(timestamp)} {msg}")
 
 
 class Greeter:
     def __init__(self):
         self.greeted = set()
 
-    def greet(self, _timestamp: datetime, name):
+    def greet(self, timestamp: datetime, name: str):
         if name not in self.greeted:
-            log(f"Hello {name}.")
+            log(timestamp, f"Hello {name}.")
             self.greeted.add(name)
         else:
-            log(f"Hello again {name}!")
+            log(timestamp, f"Hello again {name}!")
 
-    def greet_later(self, _timestamp: datetime, name):
-        log(f"{name} arrived.")
-        asp.call_later(1, self.greet, name)
+    def greet_later(self, timestamp: datetime, name):
+        log(timestamp, f"{name} arrived.")
+        asp.call_later(timestamp + timedelta(seconds=1), self.greet, name)
 
-    async def sleep_and_greet(self, _timestamp: datetime, name):
-        log(f"{name} arrived.")
+    async def sleep_and_greet(self, timestamp: datetime, name):
+        log(timestamp, f"{name} arrived.")
         delay = timedelta(seconds=5)
         await asp.sleep(delay)
-        self.greet(_timestamp + delay, name)
+        self.greet(timestamp + delay, name)
