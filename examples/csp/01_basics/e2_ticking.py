@@ -2,8 +2,8 @@ import asyncio
 
 from datetime import datetime, timedelta
 from typing import Optional
-import asp
-from asp.testing import merge_timeseries, log
+import async_stream_processing as asp
+from async_stream_processing.testing import merge_timeseries, log
 
 
 class Calculator:
@@ -12,7 +12,9 @@ class Calculator:
         self.y = 0
         self.accum = 0
 
-    def new_value(self, _timestamp: datetime, x: Optional[int] = None, y: Optional[int] = None):
+    def new_value(
+        self, _event_time: datetime, x: Optional[int] = None, y: Optional[int] = None
+    ):
         if x is not None:
             self.x = x
         if y is not None:

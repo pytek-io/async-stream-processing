@@ -3,8 +3,8 @@ from typing import Any
 
 import pytest
 
-import asp
-from asp.testing import timestamps
+import async_stream_processing as asp
+from async_stream_processing.testing import timestamps
 
 TIMESTAMP_TOLERANCE = 0.001
 
@@ -14,15 +14,15 @@ class Client:
         self.start_time = start_time
         self.greeted = []
 
-    def greet(self, _timestamp: datetime, value):
+    def greet(self, _event_time: datetime, value):
         self.greeted.append(((asp.now() - self.start_time).total_seconds(), value))
 
-    async def sleep_and_greet(self, _timestamp: datetime, value):
+    async def sleep_and_greet(self, _event_time: datetime, value):
         delay = timedelta(seconds=1)
         await asp.sleep(delay)
-        self.greet(_timestamp + delay, value)
+        self.greet(_event_time + delay, value)
 
-    def greet_later(self, _timestamp: datetime, value: Any):
+    def greet_later(self, _event_time: datetime, value: Any):
         asp.call_later(1, self.greet, value)
 
 
@@ -36,10 +36,8 @@ async def test_fast_forward(method, lags):
     client = Client(start_time)
     values = list(range(10))
     past_values = list(zip(timestamps(start_time, delay=timedelta(seconds=1)), values))
-    await asp.run(
-        [asp.process_stream(callback=getattr(client, method), past=past_values)], start_time=start_time
-    )
+    await asp.run([asp.process_stream(callback=getattr(client, method), past=past_values)], start_time=start_time)
     assert len(client.greeted) == len(values)
-    for (timestamp, value), (expected_timestamp, expected_value), lag in zip(client.greeted, past_values, lags):
-        assert abs(timestamp - lag - (expected_timestamp - start_time).total_seconds()) < TIMESTAMP_TOLERANCE
+    for (event_time, value), (expected_timestamp, expected_value), lag in zip(client.greeted, past_values, lags):
+        assert abs(event_time - lag - (expected_timestamp - start_time).total_seconds()) < TIMESTAMP_TOLERANCE
         assert value == expected_value

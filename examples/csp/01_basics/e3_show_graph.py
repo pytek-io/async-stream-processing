@@ -2,17 +2,22 @@ import asyncio
 from typing import Optional
 from datetime import datetime, timedelta
 from itertools import count
-import asp
+import async_stream_processing as asp
 
-from asp.testing import merge_timeseries, log
+from async_stream_processing.testing import merge_timeseries, log
 
 
 class Calculator:
-    def __init__(self):
+    def __init__(self) -> None:
         self.bid: Optional[float] = None
         self.ask: Optional[float] = None
 
-    def spread(self, _timestamp: datetime, bid: Optional[float] = None, ask: Optional[float] = None):
+    def spread(
+        self,
+        _event_time: datetime,
+        bid: Optional[float] = None,
+        ask: Optional[float] = None,
+    ):
         if bid is not None:
             self.bid = bid
             log(f"bid: {self.bid}")

@@ -6,9 +6,9 @@ from functools import reduce
 from itertools import repeat
 from typing import Dict, List
 
-import asp
+import async_stream_processing as asp
 
-from asp.testing import log
+from async_stream_processing.testing import log
 
 
 @dataclass
@@ -32,19 +32,19 @@ class CartUpdate:
 
 
 class CartManager:
-    def __init__(self):
+    def __init__(self) -> None:
         self.carts: Dict[int, Cart] = {}
 
-    def remove_discount(self, _timestamp: datetime, user_id: int):
+    def remove_discount(self, _event_time: datetime, user_id: int):
         log(f"Discount expired for user {user_id}")
         self.carts[user_id].discount = 1.0
 
-    def update_cart(self, _timestamp: datetime, event: CartUpdate, user_id: int):
+    def update_cart(self, _event_time: datetime, event: CartUpdate, user_id: int):
         if user_id not in self.carts:
             self.carts[user_id] = Cart(user_id, [])
             # It would make more sense to schedule the discount expiration from here, but it would not be consistent
-            # with the original example where the discount is removed after 1 minute from the beginning of the simulation.
-            # asp.call_later(60, self.remove_discount, user_id)
+            # with the original example where the discount is removed after 1 minute from the beginning of the
+            # simulation. asp.call_later(60, self.remove_discount, user_id)
         cart = self.carts[user_id]
         if event.add:
             cart.items.append(
@@ -63,7 +63,7 @@ class CartManager:
                 else:
                     new_items.append(item)
             cart.items = new_items
-        total = reduce(lambda acc, item: acc + item.cost * item.qty, cart.items, 0)
+        total = reduce(lambda acc, item: acc + item.cost * item.qty, cart.items, 0.0)
         num_items = reduce(lambda acc, item: acc + item.qty, cart.items, 0)
         log(f"Cart total:{total:.2f}, number of items:{num_items}")
 

@@ -1,6 +1,6 @@
 import asyncio
 
-import asp
+import async_stream_processing as asp
 
 from common import NAMES, Greeter, create_async_generator
 

@@ -1,5 +1,5 @@
 import asyncio
-import websockets
+import websockets  # pyright: ignore[reportMissingImports]
 
 
 async def echo(websocket):

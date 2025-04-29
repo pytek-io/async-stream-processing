@@ -3,10 +3,11 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Iterable, Tuple
 
-import asp
+import async_stream_processing as asp
 
-# This example demonstrates the advanced concept of dynamic graphs. Dynamic graphs provide the ability to extend the shape of the graph during runtime,
-# which is useful when you may not necessarily know what you will be processing at start
+# This example demonstrates the advanced concept of dynamic graphs. Dynamic graphs provide the ability to extend
+# the shape of the graph during runtime, which is useful when you may not necessarily know what you will be
+# processing at start
 
 
 @dataclass
@@ -16,27 +17,27 @@ class Order:
     price: float
 
 
-def process_symbol(timestamp: datetime, order: Order):
+def process_symbol(event_time: datetime, order: Order):
     print(
-        f"{timestamp} Processing order for symbol {order.symbol} with size {order.size} at price {order.price}"
+        f"{event_time} Processing order for symbol {order.symbol} with size {order.size} at price {order.price}"
     )
 
 
 def iterate_orders_for_symbol(orders: Iterable[Tuple[datetime, Order]], symbol: str):
-    for timestamp, order in orders:
+    for event_time, order in orders:
         if order.symbol == symbol:
-            yield timestamp, order
+            yield event_time, order
 
 
 def classify_orders(
     orders: Iterable[Tuple[datetime, Order]],
 ) -> Iterable[Tuple[datetime, Iterable[Tuple[datetime, Order]]]]:
     symbols = set()
-    for timestamp, order in orders:
+    for event_time, order in orders:
         if order.symbol not in symbols:
             symbols.add(order.symbol)
             print(f"New symbol detected: {order.symbol}")
-            yield timestamp, iterate_orders_for_symbol(orders, order.symbol)
+            yield event_time, iterate_orders_for_symbol(orders, order.symbol)
 
 
 def main():
@@ -52,7 +53,9 @@ def main():
         (start_time + timedelta(seconds=6), Order(symbol="GME", price=200, size=800)),
     ]
 
-    def on_new_symbol_orders(_timestamp: datetime, orders: Iterable[Tuple[datetime, Order]]):
+    def on_new_symbol_orders(
+        _event_time: datetime, orders: Iterable[Tuple[datetime, Order]]
+    ):
         asp.call_later(None, asp.process_stream(callback=process_symbol, past=orders))
 
     asyncio.run(

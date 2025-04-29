@@ -1,24 +1,27 @@
+[![Coverage](https://codecov.io/gh/pytek-io/async-stream-processing/branch/main/graph/badge.svg)](https://codecov.io/gh/pytek-io/async-stream-processing)
+[![CI](https://github.com/pytek-io/async-stream-processing/actions/workflows/ci.yml/badge.svg)](https://github.com/pytek-io/async-stream-processing/actions)
+
 Async Stream Processing (ASP) is a nested event loop providing ad hoc functionalities for event streams processing. Event streams can be either timestamped data or real time data arriving asynchronously. ASP allows past data to be processed in an accelerated yet consistent manner, moving clocks consistently. This is particularly useful to simulate a given strategy against past events, test temporal aspects of a system, hot reload a past dependent system, etc.
 
 ## Processing past events
 
-Past event streams are passed as regular iterators over timestamped values, ie: (datetime, value) tuples. They are mapped to callbacks in the example below example.  
+Past event streams are passed as regular iterators over timestamped values, ie: (datetime, value) tuples. They are mapped to callbacks as shown in the below example.
 
 ```python
 import asyncio
 from datetime import datetime, timedelta
 
-import asp
+import async_stream_processing as asp
 
 NAMES = ["Jane", "John", "Sarah", "Paul", "Jane"]
 
 
-def format(timestamp: datetime):
-    return f"{timestamp:%H:%M:%S.%f}"
+def format(event_time: datetime):
+    return f"{event_time:%H:%M:%S.%f}"
 
 
-def log(timestamp: datetime, msg: str):
-    print(f"{format(datetime.now())} {format(asp.now())} {format(timestamp)} {msg}")
+def log(event_time: datetime, msg: str):
+    print(f"{format(datetime.now())} {format(asp.now())} {format(event_time)} {msg}")
 
 
 def timestamps(start: datetime, delay: timedelta):
@@ -32,12 +35,12 @@ class Greeter:
     def __init__(self):
         self.greeted = set()
 
-    def greet(self, timestamp: datetime, name: str):
+    def greet(self, event_time: datetime, name: str):
         if name not in self.greeted:
-            log(timestamp, f"Hello {name}.")
+            log(event_time, f"Hello {name}.")
             self.greeted.add(name)
         else:
-            log(timestamp, f"Hello again {name}!")
+            log(event_time, f"Hello again {name}!")
 
 
 def main():
@@ -63,10 +66,9 @@ We used the following two elements of the ASP API.
 
 - *process_stream* associate a callback to a stream of events.
 
-One will notice that past events are processed immediately one after the other even though ASP time goes by consistently with *past_queue* timestamps.
+One will notice that past events are processed immediately one after the other even though ASP time goes by consistently with *past_queue* timestamps. It is also worth noticing that callbacks always receive the event time as first argument. It should be used instead of *asp.now*  when the state of the system depends on the event time to the maximum precision. It can also be used to detect any significant lag when processing events.
 
 In this example we pass only one event stream for simplicity sake, but one can pass as many as needed.
-
 
 ## Processing real time events
 
@@ -100,7 +102,7 @@ def main():
 
 One can now see that we are now processing events in real time, that is, actual and virtual times are identical.
 
-## Traveling through time 
+## Traveling through time
 
 One can also combine the two previous examples to initialize a past dependant system.
 
@@ -139,9 +141,9 @@ Note also that after virtual time catches up with actual time they become consis
 ```python
 class Greeter:
     ...
-    def greet_later(self, timestamp: datetime, name):
-        log(timestamp, f"{name} arrived.")
-        asp.call_later(timestamp + timedelta(seconds=1), self.greet, name)
+    def greet_later(self, event_time: datetime, name):
+        log(event_time, f"{name} arrived.")
+        asp.call_later(event_time + timedelta(seconds=1), self.greet, name)
 
 
 def main():
@@ -177,20 +179,20 @@ This will produce the following output.
 11:33:00.856018 11:33:00.856005 11:33:00.854089 Hello again Jane!
 ```
 
-One can can see that we fast forwarded events while maintaining the expected chronology. Callbacks can be either regular methods or coroutines.
+One can see that we fast forwarded events while maintaining the expected chronology. Callbacks can be either regular methods or coroutines.
 
 ## Pausing execution
 
-ASP provides a *sleep* method that can also be fast forwarded as shown below. 
+ASP provides a *sleep* method that can also be fast forwarded as shown below.
 
 ```python
 class Greeter:
     ...
-    async def sleep_and_greet(self, timestamp: datetime, name):
-        log(timestamp, f"{name} arrived.")
+    async def sleep_and_greet(self, event_time: datetime, name):
+        log(event_time, f"{name} arrived.")
         delay = timedelta(seconds=5)
         await asp.sleep(delay)
-        self.greet(timestamp + delay, name)
+        self.greet(event_time + delay, name)
 
 
 def main():
@@ -227,7 +229,7 @@ def main():
 11:38:55.844117 11:38:55.844082 11:38:55.844114 Jane arrived.
 11:39:00.846036 11:39:00.845992 11:39:00.844114 Hello again Jane!
 ```
-One can see once again the correct chronology of events being displayed. 
+One can see once again the correct chronology of events being displayed.
 
 ## Executing arbitrary coroutines
 
