@@ -54,7 +54,7 @@ def main():
     ]
 
     def on_new_symbol_orders(
-        _timestamp: datetime, orders: Iterable[Tuple[datetime, Order]]
+        _event_time: datetime, orders: Iterable[Tuple[datetime, Order]]
     ):
         asp.call_later(None, asp.process_stream(callback=process_symbol, past=orders))
 

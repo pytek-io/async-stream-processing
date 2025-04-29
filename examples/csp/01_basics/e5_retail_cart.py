@@ -35,11 +35,11 @@ class CartManager:
     def __init__(self) -> None:
         self.carts: Dict[int, Cart] = {}
 
-    def remove_discount(self, _timestamp: datetime, user_id: int):
+    def remove_discount(self, _event_time: datetime, user_id: int):
         log(f"Discount expired for user {user_id}")
         self.carts[user_id].discount = 1.0
 
-    def update_cart(self, _timestamp: datetime, event: CartUpdate, user_id: int):
+    def update_cart(self, _event_time: datetime, event: CartUpdate, user_id: int):
         if user_id not in self.carts:
             self.carts[user_id] = Cart(user_id, [])
             # It would make more sense to schedule the discount expiration from here, but it would not be consistent

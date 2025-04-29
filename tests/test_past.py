@@ -14,15 +14,15 @@ class Client:
         self.start_time = start_time
         self.greeted = []
 
-    def greet(self, _timestamp: datetime, value):
+    def greet(self, _event_time: datetime, value):
         self.greeted.append(((asp.now() - self.start_time).total_seconds(), value))
 
-    async def sleep_and_greet(self, _timestamp: datetime, value):
+    async def sleep_and_greet(self, _event_time: datetime, value):
         delay = timedelta(seconds=1)
         await asp.sleep(delay)
-        self.greet(_timestamp + delay, value)
+        self.greet(_event_time + delay, value)
 
-    def greet_later(self, _timestamp: datetime, value: Any):
+    def greet_later(self, _event_time: datetime, value: Any):
         asp.call_later(1, self.greet, value)
 
 

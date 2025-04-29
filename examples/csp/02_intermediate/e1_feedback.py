@@ -30,7 +30,7 @@ class MyAlgo:
         self.exchange = exchange
 
     async def on_exec_report(
-        self, _timestamp: datetime, exec_report: ExecReport | None = None
+        self, _event_time: datetime, exec_report: ExecReport | None = None
     ):
         if exec_report:
             log(
@@ -50,7 +50,9 @@ class Exchange:
         self.last_price = 100.0
         self.last_id = 1
 
-    def on_new_order(self, _timestamp: datetime, exec_callback: Callable, order: Order):
+    def on_new_order(
+        self, _event_time: datetime, exec_callback: Callable, order: Order
+    ):
         exec_report = ExecReport(order_id=order.order_id, status="ACK")
         asp.call_later(0.7, exec_callback, exec_report)
 

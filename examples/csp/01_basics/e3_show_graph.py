@@ -14,7 +14,7 @@ class Calculator:
 
     def spread(
         self,
-        _timestamp: datetime,
+        _event_time: datetime,
         bid: Optional[float] = None,
         ask: Optional[float] = None,
     ):

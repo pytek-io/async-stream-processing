@@ -41,14 +41,14 @@ class Book:
         self.buy_positions = Positions()
         self.sell_positions = Positions()
 
-    def on_new_trade(self, _timestamp: datetime, trade: Trade):
+    def on_new_trade(self, _event_time: datetime, trade: Trade):
         if trade.buy:
             self.buy_positions.on_new_trade(trade)
         else:
             self.sell_positions.on_new_trade(trade)
         self.compute_pnl()
 
-    def on_new_quote(self, _timestamp: datetime, quote: Tuple[bool, float]):
+    def on_new_quote(self, _event_time: datetime, quote: Tuple[bool, float]):
         bid_or_ask, value = quote
         if bid_or_ask:
             self.last_bid = value

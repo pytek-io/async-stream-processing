@@ -13,7 +13,7 @@ class Calculator:
         self.accum = 0
 
     def new_value(
-        self, _timestamp: datetime, x: Optional[int] = None, y: Optional[int] = None
+        self, _event_time: datetime, x: Optional[int] = None, y: Optional[int] = None
     ):
         if x is not None:
             self.x = x
