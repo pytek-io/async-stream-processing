@@ -38,14 +38,16 @@ class MovingAverage:
         self.last_timestamp = None
         self.values: pl.DataFrame = pl.DataFrame(
             schema=[
-                ("timestamp", pl.Datetime),
+                ("event_time", pl.Datetime),
                 ("value", pl.Float64),
                 ("weight", pl.Float64),
             ]
         )
 
-    def __call__(self, timestamp: datetime):
-        filtered = self.values.filter(pl.col("timestamp") >= timestamp - self.interval)
+    def __call__(self, event_time: datetime):
+        filtered = self.values.filter(
+            pl.col("event_time") >= event_time - self.interval
+        )
         if filtered.is_empty():
             return None
         return (filtered["value"] * filtered["weight"]).sum() / filtered["weight"].sum()
@@ -53,12 +55,12 @@ class MovingAverage:
     def reset(self):
         self.values.clear()
 
-    def add_value(self, timestamp: datetime, value: float, weight: float):
+    def add_value(self, event_time: datetime, value: float, weight: float):
         new_row = pl.DataFrame(
-            data=[[timestamp, value, weight]], schema=self.values.schema, orient="row"
+            data=[[event_time, value, weight]], schema=self.values.schema, orient="row"
         )
         self.values = self.values.filter(
-            pl.col("timestamp") >= timestamp - self.interval
+            pl.col("event_time") >= event_time - self.interval
         ).vstack(new_row)
 
 
@@ -67,14 +69,14 @@ def main():
     mva = MovingAverage(interval=timedelta(minutes=2), min_windows=timedelta(minutes=1))
     cumulative_volume = 0
 
-    def update(_timestamp: datetime, value: float, weight: float):
+    def update(_event_time: datetime, value: float, weight: float):
         print(f"Value: {value}, Weight: {weight}")
         nonlocal cumulative_volume
-        timestamp = asp.now()
-        mva.add_value(timestamp, value, weight)
+        event_time = asp.now()
+        mva.add_value(event_time, value, weight)
         cumulative_volume += weight
 
-    def print_values(_timestamp: datetime):
+    def print_values(_event_time: datetime):
         if cumulative_volume > 0:
             mva_value = mva(asp.now())
             vwap = f"{mva(asp.now()):g}" if mva_value is not None else "none"
@@ -84,7 +86,12 @@ def main():
         asp.run(
             [
                 asp.process_stream(callback=update, past=events, unpack_kwargs=True),
-                asp.timer(timedelta(minutes=1), print_values, prices_data[0][0], prices_data[-1][0]),
+                asp.timer(
+                    timedelta(minutes=1),
+                    print_values,
+                    prices_data[0][0],
+                    prices_data[-1][0],
+                ),
             ],
         )
     )

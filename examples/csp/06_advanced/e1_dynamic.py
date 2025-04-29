@@ -16,27 +16,27 @@ class Order:
     price: float
 
 
-def process_symbol(timestamp: datetime, order: Order):
+def process_symbol(event_time: datetime, order: Order):
     print(
-        f"{timestamp} Processing order for symbol {order.symbol} with size {order.size} at price {order.price}"
+        f"{event_time} Processing order for symbol {order.symbol} with size {order.size} at price {order.price}"
     )
 
 
 def iterate_orders_for_symbol(orders: Iterable[Tuple[datetime, Order]], symbol: str):
-    for timestamp, order in orders:
+    for event_time, order in orders:
         if order.symbol == symbol:
-            yield timestamp, order
+            yield event_time, order
 
 
 def classify_orders(
     orders: Iterable[Tuple[datetime, Order]],
 ) -> Iterable[Tuple[datetime, Iterable[Tuple[datetime, Order]]]]:
     symbols = set()
-    for timestamp, order in orders:
+    for event_time, order in orders:
         if order.symbol not in symbols:
             symbols.add(order.symbol)
             print(f"New symbol detected: {order.symbol}")
-            yield timestamp, iterate_orders_for_symbol(orders, order.symbol)
+            yield event_time, iterate_orders_for_symbol(orders, order.symbol)
 
 
 def main():

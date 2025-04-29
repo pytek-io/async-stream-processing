@@ -40,6 +40,6 @@ async def test_fast_forward(method, lags):
         [asp.process_stream(callback=getattr(client, method), past=past_values)], start_time=start_time
     )
     assert len(client.greeted) == len(values)
-    for (timestamp, value), (expected_timestamp, expected_value), lag in zip(client.greeted, past_values, lags):
-        assert abs(timestamp - lag - (expected_timestamp - start_time).total_seconds()) < TIMESTAMP_TOLERANCE
+    for (event_time, value), (expected_timestamp, expected_value), lag in zip(client.greeted, past_values, lags):
+        assert abs(event_time - lag - (expected_timestamp - start_time).total_seconds()) < TIMESTAMP_TOLERANCE
         assert value == expected_value

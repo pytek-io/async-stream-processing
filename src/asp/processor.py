@@ -13,9 +13,9 @@ class Future:
         yield self
 
 
-def wrap_as_coroutine(func: Callable, timestamp, *args: Any) -> Coroutine:
+def wrap_as_coroutine(func: Callable, event_time: datetime, *args: Any) -> Coroutine:
     async def result():
-        return func(timestamp, *args)
+        return func(event_time, *args)
 
     return result()
 
@@ -157,13 +157,13 @@ def call_method(
     unpack_args,
     unpack_kwargs,
 ) -> Callable:
-    def result(timestamp, value):
+    def result(event_time, value):
         if unpack_args:
-            return callback(timestamp, *value)
+            return callback(event_time, *value)
         elif unpack_kwargs:
-            return callback(timestamp, **value)
+            return callback(event_time, **value)
         else:
-            return callback(timestamp, value)
+            return callback(event_time, value)
 
     return result
 
@@ -181,19 +181,19 @@ async def process_stream(
     if not asyncio.iscoroutinefunction(callback):
         original_callback = wrapped_callback
 
-        async def wrapped_callback(timestamp, value):
-            original_callback(timestamp, value)
+        async def wrapped_callback(event_time, value):
+            original_callback(event_time, value)
 
     if on_start:
         on_start()
-    for timestamp, value in past:
-        await sleep(timestamp)
-        await wrapped_callback(timestamp, value)
+    for event_time, value in past:
+        await sleep(event_time)
+        await wrapped_callback(event_time, value)
     if on_live_start:
         on_live_start()
     if future:
-        async for timestamp, value in future:
-            await wrapped_callback(timestamp, value)
+        async for event_time, value in future:
+            await wrapped_callback(event_time, value)
 
 
 async def run(coroutines: List[Coroutine[Any, Any, Any]], start_time: datetime = None) -> None:
