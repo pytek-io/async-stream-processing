@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-import datetime
+from datetime import datetime
 from dataclasses import dataclass
 from typing import Callable
 
@@ -29,7 +29,9 @@ class MyAlgo:
         self.last_price = 100.0
         self.exchange = exchange
 
-    async def on_exec_report(self, _timestamp: datetime, exec_report: ExecReport | None = None):
+    async def on_exec_report(
+        self, _timestamp: datetime, exec_report: ExecReport | None = None
+    ):
         if exec_report:
             log(
                 f"Received exec report for order id:{exec_report.order_id} status {exec_report.status}"
@@ -56,7 +58,7 @@ class Exchange:
 def main():
     exchange = Exchange()
     algo = MyAlgo(exchange)
-    start_time = datetime.datetime.now()
+    start_time = datetime.now()
     asyncio.run(asp.run([algo.on_exec_report(start_time)], start_time=start_time))
 
 

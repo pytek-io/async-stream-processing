@@ -12,7 +12,9 @@ class Calculator:
         self.y = 0
         self.accum = 0
 
-    def new_value(self, _timestamp: datetime, x: Optional[int] = None, y: Optional[int] = None):
+    def new_value(
+        self, _timestamp: datetime, x: Optional[int] = None, y: Optional[int] = None
+    ):
         if x is not None:
             self.x = x
         if y is not None:

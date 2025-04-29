@@ -15,7 +15,7 @@ class Future:
 
 def wrap_as_coroutine(func: Callable, event_time: datetime, *args: Any) -> Coroutine:
     async def result():
-        return func(event_time, *args)
+        func(event_time, *args)
 
     return result()
 
@@ -26,7 +26,7 @@ class Processor:
         self.start_time = start_time
         self.virtual_time = start_time
         self.actual_time = datetime.now()
-        self.scheduled_coroutines = []
+        self.scheduled_coroutines: List[Tuple[datetime, Coroutine]] = []
         self.ready_coroutines = coroutines.copy()
 
     @contextmanager
@@ -57,12 +57,12 @@ class Processor:
         if asyncio.iscoroutinefunction(coroutine_or_func):
             coroutine_or_func = coroutine_or_func(*args)
         elif not asyncio.iscoroutine(coroutine_or_func):
-            coroutine_or_func = wrap_as_coroutine(coroutine_or_func, delay, *args)
+            coroutine_or_func = wrap_as_coroutine(coroutine_or_func, delay, *args)  # type: ignore
         self.scheduled_coroutines.append((delay, coroutine_or_func))
         self.scheduled_coroutines.sort(key=lambda x: x[0])
 
-    async def run(self):
-        awaiting_coroutines: Dict[Awaitable, Coroutine] = {}
+    async def run(self) -> None:
+        awaiting_coroutines: Dict[asyncio.Task, Coroutine] = {}
         self.virtual_time = self.start_time
         while awaiting_coroutines or self.scheduled_coroutines or self.ready_coroutines:
             next_due_time = self.scheduled_coroutines[0][0] if self.scheduled_coroutines else None
@@ -79,7 +79,7 @@ class Processor:
                     if awaiting_coroutines:
                         timeout = (next_due_time - datetime.now()).total_seconds() if next_due_time else None
                         done, _pending = await asyncio.wait(
-                            awaiting_coroutines, timeout=timeout, return_when=asyncio.FIRST_COMPLETED
+                            list(awaiting_coroutines), timeout=timeout, return_when=asyncio.FIRST_COMPLETED
                         )
                         for future in done:
                             self.ready_coroutines.append(awaiting_coroutines.pop(future))
@@ -196,7 +196,7 @@ async def process_stream(
             await wrapped_callback(event_time, value)
 
 
-async def run(coroutines: List[Coroutine[Any, Any, Any]], start_time: datetime = None) -> None:
+async def run(coroutines: List[Coroutine[Any, Any, Any]], start_time: Optional[datetime] = None) -> None:
     """
     Run the processor with the given coroutines.
     :param coroutines: List of coroutines to run.

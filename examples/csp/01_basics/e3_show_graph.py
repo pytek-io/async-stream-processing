@@ -8,11 +8,16 @@ from asp.testing import merge_timeseries, log
 
 
 class Calculator:
-    def __init__(self):
+    def __init__(self) -> None:
         self.bid: Optional[float] = None
         self.ask: Optional[float] = None
 
-    def spread(self, _timestamp: datetime, bid: Optional[float] = None, ask: Optional[float] = None):
+    def spread(
+        self,
+        _timestamp: datetime,
+        bid: Optional[float] = None,
+        ask: Optional[float] = None,
+    ):
         if bid is not None:
             self.bid = bid
             log(f"bid: {self.bid}")

@@ -4,7 +4,7 @@ This requires websocket_server.py to be running.
 
 import asp
 import asyncio
-import websockets
+import websockets  # pyright: ignore[reportMissingImports]
 
 
 async def data(uri: str, number: int):

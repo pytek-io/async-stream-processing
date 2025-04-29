@@ -1,5 +1,5 @@
 import asyncio
-import polars as pl
+import polars as pl  # pyright: ignore[reportMissingImports]
 import asp
 from datetime import datetime, timedelta
 from asp.testing import log, merge_timeseries

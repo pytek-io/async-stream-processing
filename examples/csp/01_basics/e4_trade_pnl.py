@@ -64,7 +64,8 @@ class Book:
     def compute_pnl(self):
         if mid := self.mid():
             log(
-                f"PNL: {self.buy_positions.pnl(mid) - self.sell_positions.pnl(mid):.2f} {self.buy_positions.pnl(mid):.2f} {self.sell_positions.pnl(mid):.2f}",
+                f"PNL: {self.buy_positions.pnl(mid) - self.sell_positions.pnl(mid):.2f} "
+                f"{self.buy_positions.pnl(mid):.2f} {self.sell_positions.pnl(mid):.2f}",
             )
 
 

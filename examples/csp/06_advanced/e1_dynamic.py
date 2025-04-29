@@ -5,8 +5,9 @@ from typing import Iterable, Tuple
 
 import asp
 
-# This example demonstrates the advanced concept of dynamic graphs. Dynamic graphs provide the ability to extend the shape of the graph during runtime,
-# which is useful when you may not necessarily know what you will be processing at start
+# This example demonstrates the advanced concept of dynamic graphs. Dynamic graphs provide the ability to extend
+# the shape of the graph during runtime, which is useful when you may not necessarily know what you will be
+# processing at start
 
 
 @dataclass
@@ -52,7 +53,9 @@ def main():
         (start_time + timedelta(seconds=6), Order(symbol="GME", price=200, size=800)),
     ]
 
-    def on_new_symbol_orders(_timestamp: datetime, orders: Iterable[Tuple[datetime, Order]]):
+    def on_new_symbol_orders(
+        _timestamp: datetime, orders: Iterable[Tuple[datetime, Order]]
+    ):
         asp.call_later(None, asp.process_stream(callback=process_symbol, past=orders))
 
     asyncio.run(

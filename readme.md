@@ -2,7 +2,7 @@ Async Stream Processing (ASP) is a nested event loop providing ad hoc functional
 
 ## Processing past events
 
-Past event streams are passed as regular iterators over timestamped values, ie: (datetime, value) tuples. They are mapped to callbacks as shown in the below example.  
+Past event streams are passed as regular iterators over timestamped values, ie: (datetime, value) tuples. They are mapped to callbacks as shown in the below example.
 
 ```python
 import asyncio
@@ -99,7 +99,7 @@ def main():
 
 One can now see that we are now processing events in real time, that is, actual and virtual times are identical.
 
-## Traveling through time 
+## Traveling through time
 
 One can also combine the two previous examples to initialize a past dependant system.
 
@@ -180,7 +180,7 @@ One can see that we fast forwarded events while maintaining the expected chronol
 
 ## Pausing execution
 
-ASP provides a *sleep* method that can also be fast forwarded as shown below. 
+ASP provides a *sleep* method that can also be fast forwarded as shown below.
 
 ```python
 class Greeter:
@@ -226,7 +226,7 @@ def main():
 11:38:55.844117 11:38:55.844082 11:38:55.844114 Jane arrived.
 11:39:00.846036 11:39:00.845992 11:39:00.844114 Hello again Jane!
 ```
-One can see once again the correct chronology of events being displayed. 
+One can see once again the correct chronology of events being displayed.
 
 ## Executing arbitrary coroutines
 

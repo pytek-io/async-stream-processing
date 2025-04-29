@@ -8,7 +8,10 @@ from common import NAMES, timestamps, Greeter, create_async_generator
 
 def main():
     greeter = Greeter()
-    past_queue = zip(timestamps(datetime.now() - timedelta(seconds=60), delay=timedelta(seconds=1)), NAMES[:2])
+    past_queue = zip(
+        timestamps(datetime.now() - timedelta(seconds=60), delay=timedelta(seconds=1)),
+        NAMES[:2],
+    )
     live_queue = create_async_generator(NAMES[2:], delay=1)
     asyncio.run(
         asp.run(
