@@ -2,9 +2,9 @@ import asyncio
 from typing import Optional
 from datetime import datetime, timedelta
 from itertools import count
-import asp
+import async_stream_processing as asp
 
-from asp.testing import merge_timeseries, log
+from async_stream_processing.testing import merge_timeseries, log
 
 
 class Calculator:

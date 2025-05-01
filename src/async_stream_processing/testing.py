@@ -2,7 +2,7 @@ import asyncio
 from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, Iterator, Tuple
 
-import asp
+import async_stream_processing as asp
 
 
 async def create_async_generator(values, delay=1):

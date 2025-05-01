@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Iterable, Tuple
 
-import asp
+import async_stream_processing as asp
 
 # This example demonstrates the advanced concept of dynamic graphs. Dynamic graphs provide the ability to extend
 # the shape of the graph during runtime, which is useful when you may not necessarily know what you will be

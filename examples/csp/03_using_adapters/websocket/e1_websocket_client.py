@@ -2,7 +2,7 @@
 This requires websocket_server.py to be running.
 """
 
-import asp
+import async_stream_processing as asp
 import asyncio
 import websockets  # pyright: ignore[reportMissingImports]
 

@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
-import asp
-from asp.testing import create_async_generator, timestamps  # noqa: F401
+import async_stream_processing as asp
+from async_stream_processing.testing import create_async_generator, timestamps  # noqa: F401
 
 NAMES = ["Jane", "John", "Sarah", "Paul", "Jane"]
 

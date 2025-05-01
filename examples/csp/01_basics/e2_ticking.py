@@ -2,8 +2,8 @@ import asyncio
 
 from datetime import datetime, timedelta
 from typing import Optional
-import asp
-from asp.testing import merge_timeseries, log
+import async_stream_processing as asp
+from async_stream_processing.testing import merge_timeseries, log
 
 
 class Calculator:

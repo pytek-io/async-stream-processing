@@ -1,8 +1,8 @@
 import asyncio
 import polars as pl  # pyright: ignore[reportMissingImports]
-import asp
+import async_stream_processing as asp
 from datetime import datetime, timedelta
-from asp.testing import log, merge_timeseries
+from async_stream_processing.testing import log, merge_timeseries
 
 
 st = datetime(2020, 1, 1)

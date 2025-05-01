@@ -6,9 +6,9 @@ from functools import reduce
 from itertools import repeat
 from typing import Dict, List
 
-import asp
+import async_stream_processing as asp
 
-from asp.testing import log
+from async_stream_processing.testing import log
 
 
 @dataclass

@@ -8,7 +8,7 @@ Past event streams are passed as regular iterators over timestamped values, ie: 
 import asyncio
 from datetime import datetime, timedelta
 
-import asp
+import async_stream_processing as asp
 
 NAMES = ["Jane", "John", "Sarah", "Paul", "Jane"]
 

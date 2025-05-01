@@ -3,8 +3,8 @@ from typing import Any
 
 import pytest
 
-import asp
-from asp.testing import timestamps
+import async_stream_processing as asp
+from async_stream_processing.testing import timestamps
 
 TIMESTAMP_TOLERANCE = 0.001
 

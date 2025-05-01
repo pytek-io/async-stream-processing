@@ -4,9 +4,9 @@ from datetime import datetime, timedelta
 from itertools import starmap
 from typing import Tuple
 
-import asp
+import async_stream_processing as asp
 
-from asp.testing import log
+from async_stream_processing.testing import log
 
 
 @dataclass

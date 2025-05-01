@@ -8,7 +8,7 @@ resolution-markers = [
 ]
 
 [[package]]
-name = "asp"
+name = "async-stream-processing"
 source = { editable = "." }
 
 [package.dev-dependencies]

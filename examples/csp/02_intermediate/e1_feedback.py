@@ -5,8 +5,8 @@ from datetime import datetime
 from dataclasses import dataclass
 from typing import Callable
 
-import asp
-from asp.testing import log
+import async_stream_processing as asp
+from async_stream_processing.testing import log
 
 
 @dataclass
