@@ -30,7 +30,7 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Set up Python
-        run: uv python install
+        run: uv python install 3.9
       - name: Install test requirements
         run: uv run pytest
       - name: Upload coverage reports to Codecov
@@ -51,9 +51,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.x"
-      - name: Build wheel and source distribution
-        run: |
-          pip install build
-          python -m build
-      - name: Publish source package on PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Build
+        run: uv build
+
+      - name: Publish
+        run: uv publish
