@@ -1,5 +1,5 @@
 [project]
-name = "asp"
+name = "async-stream-processing"
 dynamic=["version"]
 description = "Asynchronous (Event) Stream Processing. Allows event stream processors easily."
 authors = [
