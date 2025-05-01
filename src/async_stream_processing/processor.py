@@ -55,7 +55,7 @@ class Processor:
         elif delay is None:
             delay = self.now()
         if asyncio.iscoroutinefunction(coroutine_or_func):
-            coroutine_or_func = coroutine_or_func(*args)
+            coroutine_or_func = coroutine_or_func(delay, *args)
         elif not asyncio.iscoroutine(coroutine_or_func):
             coroutine_or_func = wrap_as_coroutine(coroutine_or_func, delay, *args)  # type: ignore
         self.scheduled_coroutines.append((delay, coroutine_or_func))
@@ -85,8 +85,6 @@ class Processor:
                             self.ready_coroutines.append(awaiting_coroutines.pop(future))
                     elif next_due_time:
                         await asyncio.sleep((next_due_time - datetime.now()).total_seconds())
-                    else:
-                        raise RuntimeError("No coroutines to run")
             for coroutine in self.ready_coroutines:
                 with self.update_virtual_time():
                     try:

@@ -6,7 +6,7 @@ from typing import Tuple
 
 import async_stream_processing as asp
 
-from async_stream_processing.testing import log
+from common import log
 
 
 @dataclass
@@ -41,29 +41,30 @@ class Book:
         self.buy_positions = Positions()
         self.sell_positions = Positions()
 
-    def on_new_trade(self, _event_time: datetime, trade: Trade):
+    def on_new_trade(self, event_time: datetime, trade: Trade):
         if trade.buy:
             self.buy_positions.on_new_trade(trade)
         else:
             self.sell_positions.on_new_trade(trade)
-        self.compute_pnl()
+        self.compute_pnl(event_time)
 
-    def on_new_quote(self, _event_time: datetime, quote: Tuple[bool, float]):
+    def on_new_quote(self, event_time: datetime, quote: Tuple[bool, float]):
         bid_or_ask, value = quote
         if bid_or_ask:
             self.last_bid = value
         else:
             self.last_ask = value
         if mid := self.mid():
-            log(f"Mid: {mid:.2f}")
+            log(event_time, f"Mid: {mid:.2f}")
 
     def mid(self):
         if self.last_bid and self.last_ask:
             return (self.last_ask + self.last_bid) / 2
 
-    def compute_pnl(self):
+    def compute_pnl(self, event_time):
         if mid := self.mid():
             log(
+                event_time,
                 f"PNL: {self.buy_positions.pnl(mid) - self.sell_positions.pnl(mid):.2f} "
                 f"{self.buy_positions.pnl(mid):.2f} {self.sell_positions.pnl(mid):.2f}",
             )

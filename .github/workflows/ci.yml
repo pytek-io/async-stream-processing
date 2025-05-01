@@ -30,7 +30,7 @@ jobs:
       - name: Set up Python
         run: uv python install 3.9
       - name: Install test requirements
-        run: uv run pytest
+        run: uv run pytest --cov-report xml --cov src
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:

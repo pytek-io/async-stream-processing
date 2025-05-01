@@ -2,7 +2,6 @@ import asyncio
 from datetime import datetime, timedelta
 
 import async_stream_processing as asp
-
 from common import NAMES, timestamps, Greeter, create_async_generator
 
 

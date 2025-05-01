@@ -6,7 +6,8 @@ from dataclasses import dataclass
 from typing import Callable
 
 import async_stream_processing as asp
-from async_stream_processing.testing import log
+
+from common import log
 
 
 @dataclass
@@ -30,16 +31,17 @@ class MyAlgo:
         self.exchange = exchange
 
     async def on_exec_report(
-        self, _event_time: datetime, exec_report: ExecReport | None = None
+        self, event_time: datetime, exec_report: ExecReport | None = None
     ):
         if exec_report:
             log(
-                f"Received exec report for order id:{exec_report.order_id} status {exec_report.status}"
+                event_time,
+                f"Received exec report for order id:{exec_report.order_id} status {exec_report.status}",
             )
         order = Order(order_id=self.last_id, price=self.last_price, qty=200, side="BUY")
         self.last_id += 1
         self.last_price += 0.01
-        log(f"Sending new order id:{order.order_id} price {order.price}")
+        log(event_time, f"Sending new order id:{order.order_id} price {order.price}")
         if self.last_id <= 10:
             asp.call_later(0.3, self.exchange.on_new_order, self.on_exec_report, order)
 

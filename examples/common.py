@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
+from typing import Any, Dict, Iterable, Iterator, Tuple
+
 import async_stream_processing as asp
-from async_stream_processing.testing import create_async_generator, timestamps  # noqa: F401
+from async_stream_processing.testing import timestamps, create_async_generator  # noqa: F401
 
 NAMES = ["Jane", "John", "Sarah", "Paul", "Jane"]
 
@@ -11,6 +13,13 @@ def format(event_time: datetime):
 
 def log(event_time: datetime, msg: str):
     print(f"{format(datetime.now())} {format(asp.now())} {format(event_time)} {msg}")
+
+
+def merge_timeseries(
+    timeseries: Dict[str, Iterable[Tuple[datetime, Any]]],
+) -> Iterator[Tuple[datetime, Dict[str, Any]]]:
+    for values in zip(*(iter(ts) for ts in timeseries.values())):
+        yield values[0][0], dict(zip(timeseries, [v for _, v in values]))
 
 
 class Greeter:

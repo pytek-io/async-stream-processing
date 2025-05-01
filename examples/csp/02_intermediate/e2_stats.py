@@ -1,9 +1,10 @@
 import asyncio
-import polars as pl  # pyright: ignore[reportMissingImports]
-import async_stream_processing as asp
 from datetime import datetime, timedelta
-from async_stream_processing.testing import log, merge_timeseries
 
+import async_stream_processing as asp
+import polars as pl  # pyright: ignore[reportMissingImports]
+
+from common import log, merge_timeseries
 
 st = datetime(2020, 1, 1)
 prices_data = [
@@ -76,11 +77,11 @@ def main():
         mva.add_value(event_time, value, weight)
         cumulative_volume += weight
 
-    def print_values(_event_time: datetime):
+    def print_values(event_time: datetime):
         if cumulative_volume > 0:
             mva_value = mva(asp.now())
             vwap = f"{mva(asp.now()):g}" if mva_value is not None else "none"
-            log(f"VWAP: {vwap}\t Cum. Vol:{cumulative_volume:.2f}")
+            log(event_time, f"VWAP: {vwap}\t Cum. Vol:{cumulative_volume:.2f}")
 
     asyncio.run(
         asp.run(

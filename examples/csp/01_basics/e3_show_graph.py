@@ -1,10 +1,11 @@
 import asyncio
-from typing import Optional
 from datetime import datetime, timedelta
 from itertools import count
+from typing import Optional
+
 import async_stream_processing as asp
 
-from async_stream_processing.testing import merge_timeseries, log
+from common import log, merge_timeseries
 
 
 class Calculator:
@@ -14,18 +15,18 @@ class Calculator:
 
     def spread(
         self,
-        _event_time: datetime,
+        event_time: datetime,
         bid: Optional[float] = None,
         ask: Optional[float] = None,
     ):
         if bid is not None:
             self.bid = bid
-            log(f"bid: {self.bid}")
+            log(event_time, f"bid: {self.bid}")
         if ask is not None:
             self.ask = ask
-            log(f"ask: {self.ask}")
+            log(event_time, f"ask: {self.ask}")
         if self.bid is not None and self.ask is not None:
-            log(f"spread: {self.ask - self.bid:.2f}")
+            log(event_time, f"spread: {self.ask - self.bid:.2f}")
 
 
 def create_timeseries(start: datetime, end: datetime, step: timedelta, factor: int = 1):

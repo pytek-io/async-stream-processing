@@ -8,7 +8,7 @@ from typing import Dict, List
 
 import async_stream_processing as asp
 
-from async_stream_processing.testing import log
+from common import log
 
 
 @dataclass
@@ -35,11 +35,11 @@ class CartManager:
     def __init__(self) -> None:
         self.carts: Dict[int, Cart] = {}
 
-    def remove_discount(self, _event_time: datetime, user_id: int):
-        log(f"Discount expired for user {user_id}")
+    def remove_discount(self, event_time: datetime, user_id: int):
+        log(event_time, f"Discount expired for user {user_id}")
         self.carts[user_id].discount = 1.0
 
-    def update_cart(self, _event_time: datetime, event: CartUpdate, user_id: int):
+    def update_cart(self, event_time: datetime, event: CartUpdate, user_id: int):
         if user_id not in self.carts:
             self.carts[user_id] = Cart(user_id, [])
             # It would make more sense to schedule the discount expiration from here, but it would not be consistent
@@ -65,7 +65,7 @@ class CartManager:
             cart.items = new_items
         total = reduce(lambda acc, item: acc + item.cost * item.qty, cart.items, 0.0)
         num_items = reduce(lambda acc, item: acc + item.qty, cart.items, 0)
-        log(f"Cart total:{total:.2f}, number of items:{num_items}")
+        log(event_time, f"Cart total:{total:.2f}, number of items:{num_items}")
 
 
 def main():
