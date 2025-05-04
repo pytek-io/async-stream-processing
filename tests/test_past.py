@@ -26,7 +26,6 @@ class Client:
         asp.call_later(1, self.greet, value)
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize("method,lags", [("greet", [0] * 10), ("sleep_and_greet", [1] * 10), ("greet_later", [1] * 10)])
 async def test_fast_forward(method, lags):
     """
@@ -43,7 +42,6 @@ async def test_fast_forward(method, lags):
         assert value == expected_value
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize("unpack_kwargs", [True, False])
 async def test_unpack(unpack_kwargs: bool):
     """
@@ -70,7 +68,6 @@ async def test_unpack(unpack_kwargs: bool):
     assert result == sum(range(10)) * 2
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "coroutine,delay", product([True, False], [None, 1, timedelta(seconds=1), datetime.now() + timedelta(seconds=1)])
 )
@@ -93,7 +90,6 @@ async def test_call_later(coroutine, delay):
     assert called
 
 
-@pytest.mark.asyncio
 async def test_future():
     """
     - past events are all passed at roughly the right virtual time.
@@ -105,7 +101,6 @@ async def test_future():
     await asp.run([asp.process_stream(callback=client.greet, future=future_values)], start_time=start_time)
 
 
-@pytest.mark.asyncio
 async def test_timer():
     """
     - past events are all passed at roughly the right virtual time.
@@ -124,7 +119,6 @@ async def test_timer():
     assert count == 10
 
 
-@pytest.mark.asyncio
 async def test_callbacks():
     """
     - past events are all passed at roughly the right virtual time.
